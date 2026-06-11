@@ -1,0 +1,90 @@
+# ─── Node.js / Next.js (admin-web-portal, driver-web-portal) ───────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.cache/
+.turbo/
+
+# ─── Java / Spring Boot (Backend) ──────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Gradle
+.gradle/
+**/build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Spring Boot config with secrets
+**/application-local.properties
+**/application-local.yml
+**/application-secrets.properties
+**/application-secrets.yml
+
+# ─── Android (mobile-app) ───────────────────────────────────────────────────────
+*.apk
+*.aab
+*.ap_
+*.dex
+bin/
+gen/
+out/
+release/
+local.properties
+.externalNativeBuild/
+.cxx/
+*.keystore
+!debug.keystore
+captures/
+.navigation/
+mobile-app/.gradle/
+mobile-app/build/
+mobile-app/app/build/
+
+# ─── IDEs & Editors ─────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Misc ───────────────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+*.orig
+coverage/
