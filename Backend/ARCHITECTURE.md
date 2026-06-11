@@ -1,6 +1,6 @@
 # Backend Architecture — Online Traffic Fine Payment System
 
-> Spring Boot REST API · Java 17 · Spring Security · JPA / Hibernate
+> Node.js · Express · JWT (jsonwebtoken) · bcrypt · Axios · MySQL / PostgreSQL
 
 ---
 
@@ -9,347 +9,274 @@
 1. [Architectural Overview](#1-architectural-overview)
 2. [Project Structure](#2-project-structure)
 3. [Layer Breakdown](#3-layer-breakdown)
-4. [Domain Model & Entity Design](#4-domain-model--entity-design)
+4. [Domain Model & Database Schema](#4-domain-model--database-schema)
 5. [REST API Design](#5-rest-api-design)
-6. [Service Layer Design](#6-service-layer-design)
-7. [Repository Layer Design](#7-repository-layer-design)
-8. [Security Architecture](#8-security-architecture)
-9. [SMS Notification Architecture](#9-sms-notification-architecture)
-10. [Exception Handling Architecture](#10-exception-handling-architecture)
-11. [Database Schema](#11-database-schema)
-12. [Configuration & Environment](#12-configuration--environment)
-13. [Class Diagram](#13-class-diagram)
+6. [Authentication & Security Architecture](#6-authentication--security-architecture)
+7. [SMS Notification Architecture](#7-sms-notification-architecture)
+8. [Exception Handling Architecture](#8-exception-handling-architecture)
+9. [Middleware Pipeline](#9-middleware-pipeline)
+10. [Configuration & Environment](#10-configuration--environment)
+11. [Dependencies](#11-dependencies)
 
 ---
 
 ## 1. Architectural Overview
 
-The backend is a **Spring Boot monolith** structured as a strict **N-Tier Layered Architecture**. Each layer has a single, well-defined responsibility and communicates only with the layer directly beneath it. No layer skips another.
+The backend is a **Node.js / Express** REST API structured as a strict **N-Tier Layered Architecture**. Each layer has one responsibility and communicates only with the layer directly beneath it.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    PRESENTATION LAYER                        │
-│                    (REST Controllers)                        │
-│   Handles HTTP, validates input, maps DTOs, returns JSON     │
+│                   (Routes + Controllers)                     │
+│  Parse HTTP, validate input, call service, return JSON       │
 │                                                              │
-│  AuthController  FineController  PaymentController           │
-│  OfficerController  CategoryController  ReportController     │
+│  auth.routes    fine.routes    payment.routes                │
+│  officer.routes category.routes  report.routes               │
 └───────────────────────────┬──────────────────────────────────┘
-                            │  uses DTOs (never entities)
+                            │  plain JS objects (DTOs)
 ┌───────────────────────────┴──────────────────────────────────┐
 │                     SERVICE LAYER                            │
 │                   (Business Logic)                           │
-│   Enforces rules, coordinates repos, fires events           │
+│  Enforces rules, hashes passwords, signs JWTs,              │
+│  triggers SMS, coordinates DB calls                         │
 │                                                              │
-│  AuthService  FineService  PaymentService                    │
-│  OfficerService  CategoryService  ReportService              │
-│  NotificationService                                         │
+│  auth.service   fine.service   payment.service               │
+│  officer.service  category.service  report.service           │
+│  sms.service                                                 │
 └───────────────────────────┬──────────────────────────────────┘
-                            │  uses JPA Entities
+                            │  SQL via db pool
 ┌───────────────────────────┴──────────────────────────────────┐
 │                   REPOSITORY LAYER                           │
-│                 (Data Access via JPA)                        │
-│   Spring Data JPA repositories — pure data access only      │
+│                  (Database Queries)                          │
+│  Raw SQL or ORM queries — no business logic                  │
 │                                                              │
-│  FineRepository  PaymentRepository  OfficerRepository        │
-│  FineCategoryRepository  AppUserRepository                   │
+│  fine.repository   payment.repository  officer.repository    │
+│  category.repository  user.repository                        │
 └───────────────────────────┬──────────────────────────────────┘
-                            │  SQL via Hibernate
+                            │  mysql2 / pg driver
 ┌───────────────────────────┴──────────────────────────────────┐
-│                      DATABASE                                │
-│                  MySQL / PostgreSQL                          │
+│                       DATABASE                               │
+│                   MySQL / PostgreSQL                         │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Key Architectural Principles
+### Key Architectural Principles Applied
 
-| Principle | How It Is Applied |
+| Principle | Application |
 |---|---|
-| Separation of Concerns | Each layer has exactly one responsibility |
-| Single Responsibility | Each class handles one domain concept |
-| Dependency Inversion | Controllers depend on service interfaces, not implementations |
-| Open/Closed | New fine categories or payment methods extend, not modify, existing code |
-| DRY | Shared logic lives in services, not duplicated across controllers |
+| Separation of Concerns | Routes handle HTTP; services handle logic; repositories handle data |
+| Dependency Inversion | Controllers import services by module — swappable without touching controllers |
+| Single Responsibility | Each service file owns exactly one domain concept |
+| DRY | Shared JWT and error logic live in `utils/` — never duplicated |
+| Fail Fast | Auth middleware rejects invalid tokens before requests reach controllers |
 
 ---
 
 ## 2. Project Structure
 
 ```
-backend/
+Backend/
 ├── src/
-│   ├── main/
-│   │   ├── java/com/trafficfine/
-│   │   │   │
-│   │   │   ├── TrafficFineApplication.java        # Spring Boot entry point
-│   │   │   │
-│   │   │   ├── controller/                        # PRESENTATION LAYER
-│   │   │   │   ├── AuthController.java
-│   │   │   │   ├── FineController.java
-│   │   │   │   ├── PaymentController.java
-│   │   │   │   ├── OfficerController.java
-│   │   │   │   ├── FineCategoryController.java
-│   │   │   │   └── ReportController.java
-│   │   │   │
-│   │   │   ├── service/                           # SERVICE LAYER
-│   │   │   │   ├── AuthService.java               # interface
-│   │   │   │   ├── FineService.java               # interface
-│   │   │   │   ├── PaymentService.java            # interface
-│   │   │   │   ├── OfficerService.java            # interface
-│   │   │   │   ├── FineCategoryService.java       # interface
-│   │   │   │   ├── ReportService.java             # interface
-│   │   │   │   ├── NotificationService.java       # interface
-│   │   │   │   └── impl/
-│   │   │   │       ├── AuthServiceImpl.java
-│   │   │   │       ├── FineServiceImpl.java
-│   │   │   │       ├── PaymentServiceImpl.java
-│   │   │   │       ├── OfficerServiceImpl.java
-│   │   │   │       ├── FineCategoryServiceImpl.java
-│   │   │   │       ├── ReportServiceImpl.java
-│   │   │   │       └── SmsNotificationServiceImpl.java
-│   │   │   │
-│   │   │   ├── repository/                        # REPOSITORY LAYER
-│   │   │   │   ├── FineRepository.java
-│   │   │   │   ├── PaymentRepository.java
-│   │   │   │   ├── OfficerRepository.java
-│   │   │   │   ├── FineCategoryRepository.java
-│   │   │   │   └── AppUserRepository.java
-│   │   │   │
-│   │   │   ├── entity/                            # JPA ENTITIES (Domain Model)
-│   │   │   │   ├── Fine.java
-│   │   │   │   ├── Payment.java
-│   │   │   │   ├── Officer.java
-│   │   │   │   ├── FineCategory.java
-│   │   │   │   └── AppUser.java
-│   │   │   │
-│   │   │   ├── dto/                               # DATA TRANSFER OBJECTS
-│   │   │   │   ├── request/
-│   │   │   │   │   ├── LoginRequest.java
-│   │   │   │   │   ├── CreateFineRequest.java
-│   │   │   │   │   ├── PaymentRequest.java
-│   │   │   │   │   ├── CreateOfficerRequest.java
-│   │   │   │   │   └── CreateCategoryRequest.java
-│   │   │   │   └── response/
-│   │   │   │       ├── AuthResponse.java
-│   │   │   │       ├── FineResponse.java
-│   │   │   │       ├── PaymentResponse.java
-│   │   │   │       ├── OfficerResponse.java
-│   │   │   │       ├── FineCategoryResponse.java
-│   │   │   │       ├── ReportSummaryResponse.java
-│   │   │   │       ├── DistrictReportResponse.java
-│   │   │   │       └── ApiErrorResponse.java
-│   │   │   │
-│   │   │   ├── security/                          # SECURITY
-│   │   │   │   ├── SecurityConfig.java            # Spring Security filter chain
-│   │   │   │   ├── JwtUtil.java                   # JWT generation & validation
-│   │   │   │   ├── JwtAuthenticationFilter.java   # Per-request JWT filter
-│   │   │   │   └── UserDetailsServiceImpl.java    # Load user from DB
-│   │   │   │
-│   │   │   ├── event/                             # APPLICATION EVENTS
-│   │   │   │   └── PaymentSuccessEvent.java
-│   │   │   │
-│   │   │   ├── exception/                         # EXCEPTION HIERARCHY
-│   │   │   │   ├── GlobalExceptionHandler.java
-│   │   │   │   ├── FineNotFoundException.java
-│   │   │   │   ├── FineAlreadyPaidException.java
-│   │   │   │   ├── InvalidPaymentException.java
-│   │   │   │   └── UnauthorizedException.java
-│   │   │   │
-│   │   │   └── config/
-│   │   │       └── AppConfig.java                 # ModelMapper, RestTemplate beans
-│   │   │
-│   │   └── resources/
-│   │       ├── application.properties             # Base config (non-secret)
-│   │       ├── application-dev.properties         # Dev overrides
-│   │       └── application-prod.properties        # Prod overrides
+│   ├── server.js                        # HTTP server entry point
+│   ├── app.js                           # Express app, middleware, route registration
 │   │
-│   └── test/
-│       └── java/com/trafficfine/
-│           ├── service/                           # Unit tests for services
-│           └── controller/                        # Integration tests for controllers
+│   ├── config/
+│   │   ├── db.js                        # Database connection pool
+│   │   └── env.js                       # Validated environment variables
+│   │
+│   ├── routes/                          # ROUTE DEFINITIONS (URL → controller method)
+│   │   ├── auth.routes.js
+│   │   ├── fine.routes.js
+│   │   ├── payment.routes.js
+│   │   ├── officer.routes.js
+│   │   ├── category.routes.js
+│   │   └── report.routes.js
+│   │
+│   ├── controllers/                     # PRESENTATION LAYER
+│   │   ├── auth.controller.js
+│   │   ├── fine.controller.js
+│   │   ├── payment.controller.js
+│   │   ├── officer.controller.js
+│   │   ├── category.controller.js
+│   │   └── report.controller.js
+│   │
+│   ├── services/                        # SERVICE LAYER (business logic)
+│   │   ├── auth.service.js              # login, register, bcrypt, JWT sign
+│   │   ├── fine.service.js
+│   │   ├── payment.service.js           # payment processing + fires SMS event
+│   │   ├── officer.service.js
+│   │   ├── category.service.js
+│   │   ├── report.service.js
+│   │   └── sms.service.js               # Axios call to SMS gateway
+│   │
+│   ├── repositories/                    # REPOSITORY LAYER (DB queries)
+│   │   ├── fine.repository.js
+│   │   ├── payment.repository.js
+│   │   ├── officer.repository.js
+│   │   ├── category.repository.js
+│   │   └── user.repository.js
+│   │
+│   ├── middleware/                      # EXPRESS MIDDLEWARE
+│   │   ├── auth.middleware.js           # JWT verification — your core deliverable
+│   │   ├── role.middleware.js           # Role-based access control
+│   │   └── validate.middleware.js       # Request body validation
+│   │
+│   └── utils/
+│       ├── jwt.util.js                  # generateToken, verifyToken helpers
+│       ├── ApiError.js                  # Custom error class with HTTP status
+│       └── asyncHandler.js             # Wraps async controllers — no try/catch boilerplate
 │
-├── pom.xml
-└── .env                                           # Secrets (never committed)
+├── .env                                 # Secrets — NOT committed
+├── .env.example                         # Template — committed
+├── package.json
+└── README.md
 ```
 
 ---
 
 ## 3. Layer Breakdown
 
-### 3.1 Presentation Layer — Controllers
+### 3.1 Routes — URL to Controller Mapping
 
-Controllers are **thin**. They only:
-- Map HTTP request bodies to DTOs
-- Call one service method
-- Return an HTTP response
+Routes attach middleware and delegate to controllers. No logic here.
 
-```java
-// Example: FineController.java
-@RestController
-@RequestMapping("/api/fines")
-public class FineController {
+```js
+// auth.routes.js
+router.post('/login',    authController.login);
+router.post('/register', protect, requireRole('ADMIN'), authController.register);
 
-    private final FineService fineService;
+// fine.routes.js
+router.get('/:referenceNumber',   fineController.getByReference);       // public
+router.post('/',  protect, requireRole('ADMIN'), fineController.create); // admin only
+router.get('/',   protect, requireRole('ADMIN'), fineController.getAll); // admin only
 
-    // GET /api/fines/{referenceNumber} — public, no auth required
-    @GetMapping("/{referenceNumber}")
-    public ResponseEntity<FineResponse> getFineByReference(@PathVariable String referenceNumber) {
-        return ResponseEntity.ok(fineService.getByReferenceNumber(referenceNumber));
-    }
+// payment.routes.js
+router.post('/',     paymentController.processPayment);  // public
+router.get('/:id',   paymentController.getReceipt);      // public
 
-    // POST /api/fines — ADMIN only
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<FineResponse> createFine(@Valid @RequestBody CreateFineRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(fineService.createFine(request));
-    }
+// report.routes.js — all protected + ADMIN
+router.get('/summary',    protect, requireRole('ADMIN'), reportController.getSummary);
+router.get('/districts',  protect, requireRole('ADMIN'), reportController.getDistricts);
+router.get('/categories', protect, requireRole('ADMIN'), reportController.getCategories);
+```
+
+### 3.2 Controllers — Handle HTTP, Call Service
+
+Controllers are thin. They extract data from `req`, call one service method, and send a response.
+
+```js
+// Example: fine.controller.js
+const getByReference = asyncHandler(async (req, res) => {
+  const fine = await fineService.getByReferenceNumber(req.params.referenceNumber);
+  res.status(200).json(fine);
+});
+```
+
+### 3.3 Services — Business Logic
+
+Services contain all rules. They throw `ApiError` when rules are violated.
+
+```js
+// Example: payment.service.js (core orchestration)
+async function processPayment(payload) {
+  const fine = await fineRepo.findByReferenceNumber(payload.referenceNumber);
+  if (!fine)                         throw new ApiError(404, 'FINE_NOT_FOUND', 'Fine not found');
+  if (fine.category_id !== payload.categoryId) throw new ApiError(422, 'CATEGORY_MISMATCH', '...');
+  if (fine.status === 'PAID')        throw new ApiError(409, 'FINE_ALREADY_PAID', '...');
+
+  const payment = await paymentRepo.create({ fineId: fine.id, ...payload });
+  await fineRepo.updateStatus(fine.id, 'PAID');
+
+  // Fire-and-forget SMS — don't await, payment response is immediate
+  smsService.sendPaymentConfirmation(fine).catch(console.error);
+
+  return payment;
 }
 ```
 
-### 3.2 Service Layer
+### 3.4 Repositories — SQL Queries
 
-Services contain **all business rules**. They are defined as interfaces to support the Dependency Inversion Principle and make unit testing easy.
-
-```java
-// Example: FineService.java (interface)
-public interface FineService {
-    FineResponse getByReferenceNumber(String referenceNumber);
-    FineResponse createFine(CreateFineRequest request);
-    List<FineResponse> getAllFines();
-}
-
-// Example: FineServiceImpl.java
-@Service
-@Transactional
-public class FineServiceImpl implements FineService {
-
-    private final FineRepository fineRepository;
-    private final FineCategoryRepository categoryRepository;
-
-    @Override
-    public FineResponse getByReferenceNumber(String referenceNumber) {
-        Fine fine = fineRepository.findByReferenceNumber(referenceNumber)
-            .orElseThrow(() -> new FineNotFoundException(referenceNumber));
-        return mapToResponse(fine);
-    }
-}
-```
-
-### 3.3 Repository Layer
-
-Repositories extend `JpaRepository` and add custom query methods using Spring Data naming conventions or `@Query`.
-
-```java
-// Example: FineRepository.java
-public interface FineRepository extends JpaRepository<Fine, UUID> {
-    Optional<Fine> findByReferenceNumber(String referenceNumber);
-    List<Fine> findByOfficer_District(String district);
-    List<Fine> findByStatus(FineStatus status);
-
-    @Query("SELECT SUM(p.amount) FROM Payment p JOIN p.fine f WHERE f.officer.district = :district")
-    BigDecimal sumPaymentsByDistrict(@Param("district") String district);
+```js
+// Example: fine.repository.js
+async function findByReferenceNumber(referenceNumber) {
+  const [rows] = await db.query(
+    'SELECT f.*, fc.name AS category_name, o.phone AS officer_phone, o.district ' +
+    'FROM fines f ' +
+    'JOIN fine_categories fc ON f.category_id = fc.id ' +
+    'JOIN officers o ON f.officer_id = o.id ' +
+    'WHERE f.reference_number = ?',
+    [referenceNumber]
+  );
+  return rows[0] ?? null;
 }
 ```
 
 ---
 
-## 4. Domain Model & Entity Design
+## 4. Domain Model & Database Schema
 
 ### Entity Relationship Diagram
 
 ```
-┌─────────────────┐          ┌──────────────────┐
-│   FineCategory  │          │     Officer       │
-├─────────────────┤          ├──────────────────┤
-│ id (UUID) PK    │          │ id (UUID) PK      │
-│ name            │          │ badgeNumber       │
-│ description     │          │ fullName          │
-│ defaultAmount   │          │ phone             │
-└────────┬────────┘          │ district          │
-         │  1                └────────┬──────────┘
-         │                            │  1
-         │  *                         │  *
-┌────────┴────────────────────────────┴──────────┐
-│                    Fine                         │
-├─────────────────────────────────────────────────┤
-│ id (UUID) PK                                    │
-│ referenceNumber (UNIQUE, INDEXED)               │
-│ categoryId FK → FineCategory                    │
-│ officerId   FK → Officer                        │
-│ driverNic                                       │
-│ driverName                                      │
-│ vehicleNumber                                   │
-│ location                                        │
-│ issuedAt (timestamp)                            │
-│ amount (BigDecimal)                             │
-│ status  ENUM(PENDING, PAID)                     │
-└─────────────────────┬───────────────────────────┘
-                      │ 1
-                      │
-                      │ 0..1
-┌─────────────────────┴───────────────────────────┐
-│                   Payment                        │
-├─────────────────────────────────────────────────┤
-│ id (UUID) PK                                    │
-│ fineId FK → Fine (UNIQUE — one payment per fine)│
-│ amount (BigDecimal)                             │
-│ paymentMethod  ENUM(CARD, ONLINE_BANKING)       │
-│ transactionReference                            │
-│ paidAt (timestamp)                              │
-└─────────────────────────────────────────────────┘
+FineCategory ──< Fine >── Officer
+                  │
+                  │ 1 : 0..1
+                  ▼
+               Payment
 
-┌─────────────────────────────────────────────────┐
-│                   AppUser                        │
-├─────────────────────────────────────────────────┤
-│ id (UUID) PK                                    │
-│ username (UNIQUE)                               │
-│ passwordHash (BCrypt)                           │
-│ role  ENUM(ADMIN)                               │
-└─────────────────────────────────────────────────┘
+AppUser  (standalone — admin portal logins only)
 ```
 
-### Fine Entity
+### SQL Schema
 
-```java
-@Entity
-@Table(name = "fines")
-public class Fine {
+```sql
+CREATE TABLE fine_categories (
+    id               CHAR(36)        PRIMARY KEY DEFAULT (UUID()),
+    name             VARCHAR(100)    NOT NULL UNIQUE,
+    description      TEXT,
+    default_amount   DECIMAL(10,2)   NOT NULL
+);
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+CREATE TABLE officers (
+    id               CHAR(36)        PRIMARY KEY DEFAULT (UUID()),
+    badge_number     VARCHAR(20)     NOT NULL UNIQUE,
+    full_name        VARCHAR(150)    NOT NULL,
+    phone            VARCHAR(15)     NOT NULL,
+    district         VARCHAR(100)    NOT NULL
+);
 
-    @Column(unique = true, nullable = false, length = 20)
-    private String referenceNumber;
+CREATE TABLE fines (
+    id               CHAR(36)        PRIMARY KEY DEFAULT (UUID()),
+    reference_number VARCHAR(20)     NOT NULL UNIQUE,
+    category_id      CHAR(36)        NOT NULL REFERENCES fine_categories(id),
+    officer_id       CHAR(36)        NOT NULL REFERENCES officers(id),
+    driver_nic       VARCHAR(12)     NOT NULL,
+    driver_name      VARCHAR(150),
+    vehicle_number   VARCHAR(20),
+    location         VARCHAR(255),
+    amount           DECIMAL(10,2)   NOT NULL,
+    status           ENUM('PENDING','PAID') NOT NULL DEFAULT 'PENDING',
+    issued_at        TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ref    (reference_number),
+    INDEX idx_status (status)
+);
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false)
-    private FineCategory category;
+CREATE TABLE payments (
+    id                    CHAR(36)        PRIMARY KEY DEFAULT (UUID()),
+    fine_id               CHAR(36)        NOT NULL UNIQUE REFERENCES fines(id),
+    amount                DECIMAL(10,2)   NOT NULL,
+    payment_method        ENUM('CARD','ONLINE_BANKING') NOT NULL,
+    transaction_reference VARCHAR(100),
+    paid_at               TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "officer_id", nullable = false)
-    private Officer officer;
-
-    @Column(nullable = false, length = 12)
-    private String driverNic;
-
-    private String driverName;
-    private String vehicleNumber;
-    private String location;
-
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal amount;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private FineStatus status = FineStatus.PENDING;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime issuedAt;
-
-    @OneToOne(mappedBy = "fine", cascade = CascadeType.ALL)
-    private Payment payment;
-}
+CREATE TABLE app_users (
+    id               CHAR(36)        PRIMARY KEY DEFAULT (UUID()),
+    username         VARCHAR(50)     NOT NULL UNIQUE,
+    password_hash    VARCHAR(255)    NOT NULL,
+    role             ENUM('ADMIN')   NOT NULL DEFAULT 'ADMIN',
+    created_at       TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ---
@@ -358,599 +285,284 @@ public class Fine {
 
 Base URL: `/api`
 
-All responses follow a consistent JSON envelope. Errors return `ApiErrorResponse`.
+### Authentication
 
-### 5.1 Authentication
-
-| Method | Endpoint | Auth | Description |
+| Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/auth/login` | Public | Admin login, returns JWT |
+| POST | `/auth/login` | Public | Returns JWT |
+| POST | `/auth/register` | ADMIN | Create admin user |
 
-**POST /auth/login**
-```json
-// Request
-{ "username": "admin01", "password": "secret" }
+### Fines
 
-// Response 200
-{ "token": "eyJhbGci...", "expiresIn": 86400 }
-
-// Response 401
-{ "error": "INVALID_CREDENTIALS", "message": "Username or password is incorrect" }
-```
-
----
-
-### 5.2 Fine Management
-
-| Method | Endpoint | Auth | Description |
+| Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/fines/{referenceNumber}` | Public | Look up a fine by reference number |
-| `POST` | `/fines` | ADMIN | Issue a new traffic fine |
-| `GET` | `/fines` | ADMIN | List all fines (paginated) |
-| `GET` | `/fines?status=PENDING` | ADMIN | Filter fines by status |
+| GET | `/fines/:referenceNumber` | Public | Look up fine |
+| POST | `/fines` | ADMIN | Issue new fine |
+| GET | `/fines` | ADMIN | List all fines |
 
-**GET /fines/{referenceNumber}**
-```json
-// Response 200
-{
-  "id": "uuid",
-  "referenceNumber": "TF-2024-001234",
-  "category": { "id": "uuid", "name": "Speeding", "defaultAmount": 2500.00 },
-  "officer": { "badgeNumber": "PC-1234", "district": "Colombo" },
-  "driverNic": "199012345678",
-  "vehicleNumber": "CAB-1234",
-  "amount": 2500.00,
-  "status": "PENDING",
-  "issuedAt": "2024-06-10T14:30:00"
-}
+### Payments
 
-// Response 404
-{ "error": "FINE_NOT_FOUND", "message": "Fine TF-2024-001234 not found" }
-```
-
-**POST /fines** *(ADMIN)*
-```json
-// Request
-{
-  "categoryId": "uuid",
-  "officerId": "uuid",
-  "driverNic": "199012345678",
-  "driverName": "Kamal Perera",
-  "vehicleNumber": "CAB-1234",
-  "location": "Galle Road, Colombo 3"
-}
-
-// Response 201
-{ "id": "uuid", "referenceNumber": "TF-2024-001235", "status": "PENDING", ... }
-```
-
----
-
-### 5.3 Payments
-
-| Method | Endpoint | Auth | Description |
+| Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/payments` | Public | Process payment for a fine |
-| `GET` | `/payments/{id}` | Public | Get payment receipt by ID |
+| POST | `/payments` | Public | Process payment |
+| GET | `/payments/:id` | Public | Get receipt |
 
-**POST /payments**
-```json
-// Request
-{
-  "referenceNumber": "TF-2024-001234",
-  "categoryId": "uuid",
-  "paymentMethod": "CARD",
-  "cardNumber": "4111111111111111",
-  "cardHolder": "Kamal Perera",
-  "expiryMonth": 12,
-  "expiryYear": 2027,
-  "cvv": "123"
-}
+### Categories
 
-// Response 200
-{
-  "paymentId": "uuid",
-  "referenceNumber": "TF-2024-001234",
-  "amount": 2500.00,
-  "transactionReference": "TXN-20240610-9987",
-  "paidAt": "2024-06-10T14:45:00",
-  "message": "Payment successful. SMS notification sent to officer."
-}
-
-// Response 409
-{ "error": "FINE_ALREADY_PAID", "message": "This fine has already been paid." }
-
-// Response 422
-{ "error": "INVALID_PAYMENT", "message": "Card details are invalid." }
-```
-
----
-
-### 5.4 Fine Categories
-
-| Method | Endpoint | Auth | Description |
+| Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/categories` | Public | List all fine categories |
-| `POST` | `/categories` | ADMIN | Create a new category |
+| GET | `/categories` | Public | List categories |
+| POST | `/categories` | ADMIN | Create category |
 
-**GET /categories**
-```json
-// Response 200
-[
-  { "id": "uuid", "name": "Speeding", "description": "...", "defaultAmount": 2500.00 },
-  { "id": "uuid", "name": "No Helmet", "description": "...", "defaultAmount": 1500.00 }
-]
-```
+### Officers
 
----
-
-### 5.5 Officers
-
-| Method | Endpoint | Auth | Description |
+| Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/officers` | ADMIN | List all officers |
-| `POST` | `/officers` | ADMIN | Register a new officer |
-| `GET` | `/officers/{id}` | ADMIN | Get officer details |
+| GET | `/officers` | ADMIN | List officers |
+| POST | `/officers` | ADMIN | Register officer |
 
----
+### Reports
 
-### 5.6 Reports (Admin)
-
-| Method | Endpoint | Auth | Description |
+| Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/reports/summary` | ADMIN | Total collections, total fines, paid vs pending |
-| `GET` | `/reports/districts` | ADMIN | Collection totals grouped by district |
-| `GET` | `/reports/categories` | ADMIN | Collection totals grouped by fine category |
-| `GET` | `/reports/summary?from=2024-01-01&to=2024-06-30` | ADMIN | Date-range filtered summary |
+| GET | `/reports/summary` | ADMIN | Overall totals |
+| GET | `/reports/districts` | ADMIN | Per-district breakdown |
+| GET | `/reports/categories` | ADMIN | Per-category breakdown |
 
-**GET /reports/districts**
-```json
-// Response 200
-[
-  { "district": "Colombo",    "totalFines": 412, "paidFines": 380, "totalAmount": 950000.00 },
-  { "district": "Gampaha",   "totalFines": 298, "paidFines": 250, "totalAmount": 620000.00 },
-  { "district": "Kandy",     "totalFines": 175, "paidFines": 160, "totalAmount": 410000.00 }
-]
+---
+
+## 6. Authentication & Security Architecture
+
+### JWT Flow
+
+```
+POST /api/auth/login
+  │
+  ├─ userRepo.findByUsername(username)         → 401 if not found
+  ├─ bcrypt.compare(password, hash)            → 401 if mismatch
+  ├─ jwt.sign({ id, role }, JWT_SECRET, 24h)
+  └─ res.json({ token, expiresIn: 86400 })
+
+
+Protected Request: GET /api/reports/summary
+  │
+  ├─ auth.middleware:
+  │     extract "Authorization: Bearer <token>"
+  │     jwt.verify(token, JWT_SECRET)          → 401 if invalid/expired
+  │     attach decoded payload to req.user
+  │
+  ├─ role.middleware:
+  │     req.user.role === 'ADMIN'              → 403 if wrong role
+  │
+  └─ reportController.getSummary(req, res)
+```
+
+### JWT Token Structure
+
+```
+Header:  { "alg": "HS256", "typ": "JWT" }
+Payload: { "id": "uuid", "role": "ADMIN", "iat": ..., "exp": ...+86400 }
+Signature: HMACSHA256(base64(header) + "." + base64(payload), JWT_SECRET)
+```
+
+### Password Hashing
+
+- Algorithm: **bcrypt**, salt rounds: **12**
+- Hash stored in `app_users.password_hash` — plaintext password never persisted
+- Comparison: `bcrypt.compare(plaintext, hash)` — constant-time, safe against timing attacks
+
+### CORS Policy
+
+```js
+cors({
+  origin: [process.env.ADMIN_PORTAL_URL, process.env.DRIVER_PORTAL_URL],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+})
 ```
 
 ---
 
-## 6. Service Layer Design
+## 7. SMS Notification Architecture
 
-### PaymentService — Core Business Logic
-
-The payment flow is the most critical path. `PaymentServiceImpl` orchestrates:
-1. Validate reference number exists
-2. Validate category matches the fine's category
-3. Confirm fine is still `PENDING`
-4. Process payment (delegate to payment gateway adapter)
-5. Persist `Payment` entity
-6. Update `Fine.status` to `PAID`
-7. Publish `PaymentSuccessEvent` (triggers SMS asynchronously)
+SMS is sent **fire-and-forget** after a successful payment — the API response is returned to the client immediately and SMS is dispatched asynchronously.
 
 ```
-PaymentService.processPayment(PaymentRequest)
-       │
-       ├─ 1. fineRepo.findByReferenceNumber()  → throws FineNotFoundException
-       ├─ 2. fine.getCategoryId() == request.getCategoryId() → throws InvalidPaymentException
-       ├─ 3. fine.getStatus() == PENDING        → throws FineAlreadyPaidException
-       ├─ 4. paymentGateway.charge(cardDetails) → throws InvalidPaymentException
-       ├─ 5. paymentRepo.save(payment)
-       ├─ 6. fine.setStatus(PAID); fineRepo.save(fine)
-       └─ 7. eventPublisher.publishEvent(new PaymentSuccessEvent(fine, payment))
+PaymentService.processPayment()
+  │
+  ├─ [sync]  Save payment, mark fine PAID, return receipt to client
+  │
+  └─ [async, fire-and-forget]
+       smsService.sendPaymentConfirmation(fine)
+            │
+            └─ axios.post(SMS_GATEWAY_URL, {
+                  to:   officer.phone,
+                  body: `Fine ${fine.reference_number} has been paid.
+                         Driver may retrieve their license.`
+               }, { headers: { Authorization: SMS_API_KEY } })
 ```
 
-### ReportService — Aggregation Logic
-
-```java
-public interface ReportService {
-    ReportSummaryResponse getSummary(LocalDate from, LocalDate to);
-    List<DistrictReportResponse> getDistrictBreakdown();
-    List<CategoryReportResponse> getCategoryBreakdown();
-}
-```
-
-`ReportServiceImpl` delegates aggregation queries to `FineRepository` and `PaymentRepository` using JPQL aggregate queries — no in-memory computation.
-
----
-
-## 7. Repository Layer Design
-
-### Custom Queries
-
-```java
-// FineRepository.java
-public interface FineRepository extends JpaRepository<Fine, UUID> {
-
-    Optional<Fine> findByReferenceNumber(String referenceNumber);
-
-    @Query("""
-        SELECT f.officer.district AS district,
-               COUNT(f) AS totalFines,
-               SUM(CASE WHEN f.status = 'PAID' THEN 1 ELSE 0 END) AS paidFines,
-               COALESCE(SUM(p.amount), 0) AS totalAmount
-        FROM Fine f
-        LEFT JOIN f.payment p
-        GROUP BY f.officer.district
-        """)
-    List<DistrictReportProjection> getDistrictReport();
-
-    @Query("""
-        SELECT fc.name AS categoryName,
-               COUNT(f) AS totalFines,
-               COALESCE(SUM(p.amount), 0) AS totalAmount
-        FROM Fine f
-        JOIN f.category fc
-        LEFT JOIN f.payment p
-        GROUP BY fc.name
-        """)
-    List<CategoryReportProjection> getCategoryReport();
-}
-
-// PaymentRepository.java
-public interface PaymentRepository extends JpaRepository<Payment, UUID> {
-    Optional<Payment> findByFine_ReferenceNumber(String referenceNumber);
-    List<Payment> findByPaidAtBetween(LocalDateTime from, LocalDateTime to);
-}
-```
-
-### Projection Interfaces (for aggregate queries)
-
-```java
-public interface DistrictReportProjection {
-    String getDistrict();
-    Long getTotalFines();
-    Long getPaidFines();
-    BigDecimal getTotalAmount();
+```js
+// sms.service.js
+async function sendPaymentConfirmation(fine) {
+  await axios.post(process.env.SMS_GATEWAY_URL, {
+    to:      fine.officer_phone,
+    message: `Fine ${fine.reference_number} paid. Driver ${fine.driver_name} may collect their license.`,
+  }, {
+    headers: { 'Authorization': `Bearer ${process.env.SMS_API_KEY}` },
+  });
 }
 ```
 
 ---
 
-## 8. Security Architecture
+## 8. Exception Handling Architecture
 
-### Spring Security Filter Chain
+### ApiError Class
 
-Every HTTP request passes through the filter chain in order:
-
-```
-HTTP Request
-     │
-     ▼
-┌─────────────────────────────┐
-│   CorsFilter                │  Allow configured origins
-└──────────────┬──────────────┘
-               ▼
-┌─────────────────────────────┐
-│  JwtAuthenticationFilter    │  Extract + validate JWT
-│  (OncePerRequestFilter)     │  Set SecurityContextHolder
-└──────────────┬──────────────┘
-               ▼
-┌─────────────────────────────┐
-│  SecurityConfig rules       │
-│  .permitAll()               │  Public endpoints: /auth/**, /fines/{ref} (GET), /payments (POST), /categories (GET)
-│  .hasRole("ADMIN")          │  Protected: /reports/**, /fines (POST), /officers/**, /categories (POST)
-└──────────────┬──────────────┘
-               ▼
-          Controller
-```
-
-### JWT Implementation
-
-```
-Token Generation (on login):
-┌──────────────────────────────────────────────────────────┐
-│  Header:  { "alg": "HS256", "typ": "JWT" }               │
-│  Payload: {                                              │
-│    "sub":  "user-uuid",                                  │
-│    "role": "ADMIN",                                      │
-│    "iat":  1717000000,                                   │
-│    "exp":  1717086400   (24 hours)                       │
-│  }                                                       │
-│  Signature: HMACSHA256(base64(header).base64(payload),   │
-│             JWT_SECRET_KEY)                              │
-└──────────────────────────────────────────────────────────┘
-
-Token Validation (JwtAuthenticationFilter):
-  1. Extract "Authorization: Bearer <token>" header
-  2. Parse token with JJWT library
-  3. Verify signature using JWT_SECRET_KEY
-  4. Check exp claim — reject if expired
-  5. Load UserDetails from DB by subject (user id)
-  6. Set UsernamePasswordAuthenticationToken into SecurityContext
-```
-
-### JwtUtil Key Methods
-
-```java
-public class JwtUtil {
-    String generateToken(UserDetails userDetails);        // on login
-    String extractUsername(String token);                 // from filter
-    boolean isTokenValid(String token, UserDetails user); // in filter
-    boolean isTokenExpired(String token);                 // in filter
+```js
+// utils/ApiError.js
+class ApiError extends Error {
+  constructor(statusCode, code, message) {
+    super(message);
+    this.statusCode = statusCode;
+    this.code = code;
+  }
 }
 ```
 
-### Endpoint Security Matrix
+### asyncHandler Wrapper
 
-| Endpoint | HTTP | Role Required |
+Eliminates repetitive try/catch in every controller.
+
+```js
+// utils/asyncHandler.js
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+```
+
+### Global Error Middleware (last middleware in app.js)
+
+```js
+app.use((err, req, res, next) => {
+  const status  = err.statusCode ?? 500;
+  const code    = err.code       ?? 'INTERNAL_ERROR';
+  const message = err.message    ?? 'An unexpected error occurred';
+  res.status(status).json({ error: code, message, timestamp: new Date().toISOString() });
+});
+```
+
+### Error Code Reference
+
+| ApiError Code | HTTP | Trigger |
 |---|---|---|
-| `/api/auth/login` | POST | Public |
-| `/api/fines/{ref}` | GET | Public |
-| `/api/payments` | POST | Public |
-| `/api/categories` | GET | Public |
-| `/api/fines` | POST | ADMIN |
-| `/api/fines` | GET | ADMIN |
-| `/api/officers/**` | ALL | ADMIN |
-| `/api/categories` | POST | ADMIN |
-| `/api/reports/**` | GET | ADMIN |
+| `INVALID_CREDENTIALS` | 401 | Wrong username or password |
+| `TOKEN_MISSING` | 401 | No Authorization header |
+| `TOKEN_INVALID` | 401 | Bad/expired JWT |
+| `FORBIDDEN` | 403 | Correct token, wrong role |
+| `FINE_NOT_FOUND` | 404 | Reference number not in DB |
+| `FINE_ALREADY_PAID` | 409 | Fine status is already PAID |
+| `CATEGORY_MISMATCH` | 422 | Category ID doesn't match fine |
+| `VALIDATION_ERROR` | 400 | Missing/invalid request fields |
+| `INTERNAL_ERROR` | 500 | Uncaught error |
 
 ---
 
-## 9. SMS Notification Architecture
+## 9. Middleware Pipeline
 
-SMS notifications are sent **asynchronously** using Spring's `ApplicationEventPublisher` — the payment response is returned to the client immediately, and the SMS is sent in a separate thread.
+Every request passes through middleware in this order:
 
 ```
-PaymentService
-     │
-     └── eventPublisher.publishEvent(new PaymentSuccessEvent(fine, payment))
-                                             │
-                                    (async thread pool)
-                                             │
-                                             ▼
-                               SmsNotificationServiceImpl
-                                     @EventListener
-                                     @Async
-                                             │
-                                             ▼
-                               HTTP POST → SMS Gateway API
-                               (Twilio / Dialog Axiata)
-                               To: officer.getPhone()
-                               Body: "Fine TF-2024-001234 has been paid.
-                                      Driver may retrieve their license."
-```
-
-### PaymentSuccessEvent
-
-```java
-public class PaymentSuccessEvent {
-    private final Fine fine;
-    private final Payment payment;
-    // constructor, getters
-}
-```
-
-### SmsNotificationServiceImpl
-
-```java
-@Service
-public class SmsNotificationServiceImpl implements NotificationService {
-
-    @Async
-    @EventListener
-    public void onPaymentSuccess(PaymentSuccessEvent event) {
-        Fine fine = event.getFine();
-        String to = fine.getOfficer().getPhone();
-        String body = String.format(
-            "Payment received for fine %s. Driver %s may retrieve their license.",
-            fine.getReferenceNumber(), fine.getDriverName()
-        );
-        smsGateway.send(to, body);
-    }
-}
+Request
+  │
+  ▼
+helmet()              — Security headers (XSS, clickjacking protection)
+  │
+  ▼
+cors()                — Allow configured frontend origins
+  │
+  ▼
+express.json()        — Parse JSON body
+  │
+  ▼
+morgan('dev')         — HTTP request logging
+  │
+  ▼
+[route middleware]
+  ├─ auth.middleware   — verify JWT, attach req.user      (protected routes only)
+  ├─ role.middleware   — check req.user.role              (admin routes only)
+  └─ validate.middleware — check required fields          (POST routes)
+  │
+  ▼
+Controller
+  │
+  ▼
+[error middleware]    — catch ApiError, format JSON response
 ```
 
 ---
 
-## 10. Exception Handling Architecture
+## 10. Configuration & Environment
 
-A single `@RestControllerAdvice` class catches all exceptions and maps them to consistent JSON error responses.
-
-### Exception Hierarchy
+### .env.example (committed — template for team)
 
 ```
-RuntimeException
-  └── TrafficFineException  (base — all custom exceptions extend this)
-        ├── FineNotFoundException       → HTTP 404
-        ├── FineAlreadyPaidException    → HTTP 409
-        ├── InvalidPaymentException     → HTTP 422
-        └── UnauthorizedException       → HTTP 401
+PORT=8080
+
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=trafficfine
+DB_USER=root
+DB_PASSWORD=
+
+JWT_SECRET=replace-with-a-long-random-256-bit-string
+JWT_EXPIRES_IN=86400
+
+SMS_GATEWAY_URL=https://api.sms-provider.com/v1/messages
+SMS_API_KEY=your_sms_api_key
+
+ADMIN_PORTAL_URL=http://localhost:3000
+DRIVER_PORTAL_URL=http://localhost:3001
 ```
 
-### GlobalExceptionHandler
+### .env (NOT committed)
 
-```java
-@RestControllerAdvice
-public class GlobalExceptionHandler {
+Copy from `.env.example` and fill in real values locally.
 
-    @ExceptionHandler(FineNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleNotFound(FineNotFoundException ex) {
-        return ResponseEntity.status(404).body(new ApiErrorResponse("FINE_NOT_FOUND", ex.getMessage()));
-    }
+### config/env.js — Validated at Startup
 
-    @ExceptionHandler(FineAlreadyPaidException.class)
-    public ResponseEntity<ApiErrorResponse> handleAlreadyPaid(FineAlreadyPaidException ex) {
-        return ResponseEntity.status(409).body(new ApiErrorResponse("FINE_ALREADY_PAID", ex.getMessage()));
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
-        String message = ex.getBindingResult().getFieldErrors().stream()
-            .map(e -> e.getField() + ": " + e.getDefaultMessage())
-            .collect(Collectors.joining(", "));
-        return ResponseEntity.status(400).body(new ApiErrorResponse("VALIDATION_ERROR", message));
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiErrorResponse> handleGeneric(Exception ex) {
-        return ResponseEntity.status(500).body(new ApiErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-    }
-}
-```
-
-### ApiErrorResponse
-
-```json
-{
-  "error": "FINE_NOT_FOUND",
-  "message": "Fine TF-2024-001234 not found",
-  "timestamp": "2024-06-10T14:30:00"
-}
+```js
+const required = ['DB_HOST','DB_NAME','DB_USER','DB_PASSWORD','JWT_SECRET','SMS_API_KEY'];
+required.forEach((key) => {
+  if (!process.env[key]) throw new Error(`Missing required env var: ${key}`);
+});
 ```
 
 ---
 
-## 11. Database Schema
+## 11. Dependencies
 
-```sql
-CREATE TABLE fine_categories (
-    id              CHAR(36)        PRIMARY KEY,
-    name            VARCHAR(100)    NOT NULL UNIQUE,
-    description     TEXT,
-    default_amount  DECIMAL(10,2)   NOT NULL
-);
+### Runtime
 
-CREATE TABLE officers (
-    id              CHAR(36)        PRIMARY KEY,
-    badge_number    VARCHAR(20)     NOT NULL UNIQUE,
-    full_name       VARCHAR(150)    NOT NULL,
-    phone           VARCHAR(15)     NOT NULL,
-    district        VARCHAR(100)    NOT NULL
-);
-
-CREATE TABLE fines (
-    id               CHAR(36)       PRIMARY KEY,
-    reference_number VARCHAR(20)    NOT NULL UNIQUE,
-    category_id      CHAR(36)       NOT NULL REFERENCES fine_categories(id),
-    officer_id       CHAR(36)       NOT NULL REFERENCES officers(id),
-    driver_nic       VARCHAR(12)    NOT NULL,
-    driver_name      VARCHAR(150),
-    vehicle_number   VARCHAR(20),
-    location         VARCHAR(255),
-    amount           DECIMAL(10,2)  NOT NULL,
-    status           VARCHAR(10)    NOT NULL DEFAULT 'PENDING',
-    issued_at        TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_reference_number (reference_number),
-    INDEX idx_status (status),
-    INDEX idx_officer (officer_id)
-);
-
-CREATE TABLE payments (
-    id                    CHAR(36)     PRIMARY KEY,
-    fine_id               CHAR(36)     NOT NULL UNIQUE REFERENCES fines(id),
-    amount                DECIMAL(10,2) NOT NULL,
-    payment_method        VARCHAR(20)  NOT NULL,
-    transaction_reference VARCHAR(100),
-    paid_at               TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE app_users (
-    id              CHAR(36)        PRIMARY KEY,
-    username        VARCHAR(50)     NOT NULL UNIQUE,
-    password_hash   VARCHAR(255)    NOT NULL,
-    role            VARCHAR(20)     NOT NULL DEFAULT 'ADMIN'
-);
-```
-
----
-
-## 12. Configuration & Environment
-
-### application.properties (committed — no secrets)
-
-```properties
-spring.application.name=traffic-fine-api
-server.port=8080
-
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=false
-spring.jpa.properties.hibernate.format_sql=true
-
-jwt.expiration-ms=86400000
-
-spring.async.core-pool-size=2
-spring.async.max-pool-size=5
-```
-
-### .env (NOT committed — loaded at runtime)
-
-```
-DB_URL=jdbc:mysql://localhost:3306/trafficfine
-DB_USERNAME=root
-DB_PASSWORD=yourpassword
-
-JWT_SECRET=a-long-random-secret-key-at-least-256-bits
-
-SMS_API_KEY=your_twilio_or_dialog_api_key
-SMS_API_URL=https://api.twilio.com/...
-SMS_FROM_NUMBER=+94XXXXXXXXX
-```
-
-### application.properties references .env values
-
-```properties
-spring.datasource.url=${DB_URL}
-spring.datasource.username=${DB_USERNAME}
-spring.datasource.password=${DB_PASSWORD}
-jwt.secret=${JWT_SECRET}
-sms.api-key=${SMS_API_KEY}
-```
-
----
-
-## 13. Class Diagram
-
-```
-┌──────────────────┐     uses     ┌──────────────────┐     uses    ┌───────────────────┐
-│  FineController  │─────────────►│   FineService    │────────────►│  FineRepository   │
-└──────────────────┘              │   <<interface>>  │             │  <<interface>>    │
-                                  └────────┬─────────┘             └───────────────────┘
-                                           │ implements
-                                  ┌────────┴─────────┐
-                                  │ FineServiceImpl   │
-                                  └──────────────────┘
-
-┌────────────────────┐   uses   ┌──────────────────────┐   uses  ┌──────────────────────┐
-│ PaymentController  │─────────►│   PaymentService     │────────►│ PaymentRepository    │
-└────────────────────┘          │   <<interface>>      │         └──────────────────────┘
-                                └──────────┬───────────┘
-                                           │ implements        publishes
-                                ┌──────────┴───────────┐ ─────────────────────────────►
-                                │  PaymentServiceImpl   │                     PaymentSuccessEvent
-                                └──────────────────────┘                              │
-                                                                                      ▼
-                                                                     ┌────────────────────────────┐
-                                                                     │ SmsNotificationServiceImpl │
-                                                                     │    @EventListener @Async   │
-                                                                     └────────────────────────────┘
-
-┌──────────────────┐   uses  ┌──────────────────┐  uses  ┌───────────────────────┐
-│ ReportController │────────►│  ReportService   │───────►│   FineRepository      │
-└──────────────────┘         │  <<interface>>   │        │   (aggregate queries) │
-                             └──────────────────┘        └───────────────────────┘
-
-┌──────────────────┐   uses  ┌──────────────────┐  loads  ┌─────────────────────────┐
-│  AuthController  │────────►│   AuthService    │────────►│ UserDetailsServiceImpl  │
-└──────────────────┘         └──────────────────┘         └─────────────────────────┘
-                                                                        │ uses
-                                                                        ▼
-                                                            ┌─────────────────────────┐
-                                                            │    AppUserRepository    │
-                                                            └─────────────────────────┘
-```
-
----
-
-### Maven Dependencies (pom.xml)
-
-| Dependency | Purpose |
+| Package | Purpose |
 |---|---|
-| `spring-boot-starter-web` | REST API, Jackson JSON |
-| `spring-boot-starter-security` | Security filter chain, BCrypt |
-| `spring-boot-starter-data-jpa` | JPA / Hibernate ORM |
-| `spring-boot-starter-validation` | `@Valid`, Bean Validation |
-| `mysql-connector-j` | MySQL JDBC driver |
-| `jjwt-api` + `jjwt-impl` + `jjwt-jackson` | JWT generation & validation |
-| `spring-boot-starter-test` | JUnit 5, Mockito |
-| `lombok` | Reduce boilerplate (`@Getter`, `@Builder`, etc.) |
+| `express` | HTTP server and routing |
+| `jsonwebtoken` | JWT signing and verification |
+| `bcryptjs` | Password hashing (bcrypt) |
+| `axios` | HTTP client for SMS gateway API calls |
+| `mysql2` | MySQL database driver (promise-based) |
+| `dotenv` | Load `.env` into `process.env` |
+| `cors` | CORS headers |
+| `helmet` | Security headers |
+| `morgan` | HTTP request logging |
+| `uuid` | Generate UUIDs for IDs |
+| `express-validator` | Request body validation |
+
+### Dev
+
+| Package | Purpose |
+|---|---|
+| `nodemon` | Auto-restart on file changes |
+| `jest` | Unit testing |
+| `supertest` | HTTP integration testing |
