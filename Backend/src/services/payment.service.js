@@ -1,3 +1,16 @@
+const { sequelize } = require('../models');
+const paymentRepo = require('../repositories/payment.repository');
+
+async function processPayment({ fineId, amount, method, transactionRef }) {
+  // process payment atomically: create payment and mark fine paid
+  return await sequelize.transaction(async (t) => {
+    const options = { transaction: t };
+    const payment = await paymentRepo.createPayment({ fineId, amount, method, transactionRef }, options);
+    return payment;
+  });
+}
+
+module.exports = { processPayment };
 const { v4: uuidv4 } = require('uuid');
 const fineRepo    = require('../repositories/fine.repository');
 const paymentRepo = require('../repositories/payment.repository');
