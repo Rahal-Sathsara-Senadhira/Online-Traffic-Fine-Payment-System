@@ -4,9 +4,10 @@ const { requireRole } = require('../middleware/role.middleware');
 
 const router = Router();
 
-// TODO: implement FineController
-router.get('/:referenceNumber', (req, res) => res.status(501).json({ message: 'Not implemented' }));
-router.post('/',   protect, requireRole('ADMIN'), (req, res) => res.status(501).json({ message: 'Not implemented' }));
-router.get('/',    protect, requireRole('ADMIN'), (req, res) => res.status(501).json({ message: 'Not implemented' }));
+const FineController = require('../controllers/fine.controller');
+
+router.get('/:referenceNumber', FineController.getByReference);
+router.post('/',   protect, requireRole('ADMIN'), FineController.createFine);
+router.get('/',    protect, requireRole('ADMIN'), FineController.listFines);
 
 module.exports = router;
