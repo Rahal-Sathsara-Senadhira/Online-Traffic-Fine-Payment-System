@@ -23,11 +23,11 @@ async function processPayment({ referenceNumber, categoryId, paymentMethod }) {
     const createdPayment = await paymentRepo.createPayment({
       fineId: fine.id,
       amount: fine.amount,
-      method: paymentMethod.toLowerCase(),
-      transactionRef: transactionReference,
+      paymentMethod,
+      transactionReference,
     }, options);
 
-    await fineRepo.updateStatus(fine.id, 'paid', options);
+    await fineRepo.updateStatus(fine.id, 'PAID', options);
 
     return createdPayment;
   });
@@ -44,7 +44,7 @@ async function processPayment({ referenceNumber, categoryId, paymentMethod }) {
     paidAt: payment.paid_at,
     message: 'Payment successful. SMS notification sent to officer.',
   };
-}
+} 
 
 async function getReceipt(id) {
   const payment = await paymentRepo.findById(id);

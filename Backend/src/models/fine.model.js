@@ -9,9 +9,7 @@ module.exports = (sequelize, DataTypes) => {
     vehicle_number: { type: DataTypes.STRING },
     location: { type: DataTypes.STRING },
     amount: { type: DataTypes.DECIMAL(10,2), allowNull: false },
-    status: { type: DataTypes.STRING, defaultValue: 'issued' },
+    status: { type: DataTypes.STRING, defaultValue: 'PENDING' },
     issued_at: { type: DataTypes.DATE },
-    paid_at: { type: DataTypes.DATE },
-    payment_id: { type: DataTypes.STRING(36) },
-  }, { tableName: 'fines' });
+  }, { tableName: 'fines', timestamps: false });
 };
