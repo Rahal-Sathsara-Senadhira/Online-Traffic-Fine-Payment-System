@@ -1,20 +1,19 @@
 const { Payment, Fine } = require('../models');
 const { v4: uuidv4 } = require('uuid');
 
-async function createPayment({ fineId, amount, method, transactionRef }, options = {}) {
+async function createPayment({ fineId, amount, paymentMethod, transactionReference }, options = {}) {
   const id = uuidv4();
   const payment = await Payment.create({
     id,
     fine_id: fineId,
     amount,
-    method,
-    status: 'completed',
-    transaction_ref: transactionRef,
+    payment_method: paymentMethod,
+    transaction_reference: transactionReference,
     paid_at: new Date(),
   }, options);
 
   await Fine.update(
-    { status: 'paid', paid_at: new Date(), payment_id: id },
+    { status: 'PAID', paid_at: new Date() },
     { where: { id: fineId }, transaction: options.transaction }
   );
 
@@ -35,4 +34,4 @@ async function findByFineId(fineId) {
   return p ? p.get({ plain: true }) : null;
 }
 
-module.exports = { createPayment, findById, findByFineId };
+module.exports = { createPayment, findById, findByFineId }; 

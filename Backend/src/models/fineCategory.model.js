@@ -4,5 +4,5 @@ module.exports = (sequelize, DataTypes) => {
     name: { type: DataTypes.STRING, allowNull: false, unique: true },
     description: { type: DataTypes.TEXT },
     default_amount: { type: DataTypes.DECIMAL(10,2), defaultValue: 0 },
-  }, { tableName: 'fine_categories' });
+  }, { tableName: 'fine_categories', timestamps: false });
 };

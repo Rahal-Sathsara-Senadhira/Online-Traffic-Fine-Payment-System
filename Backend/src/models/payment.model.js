@@ -3,9 +3,8 @@ module.exports = (sequelize, DataTypes) => {
     id: { type: DataTypes.STRING(36), primaryKey: true },
     fine_id: { type: DataTypes.STRING(36), allowNull: false },
     amount: { type: DataTypes.DECIMAL(10,2), allowNull: false },
-    method: { type: DataTypes.STRING },
-    status: { type: DataTypes.STRING, defaultValue: 'pending' },
-    transaction_ref: { type: DataTypes.STRING },
-    paid_at: { type: DataTypes.DATE },
-  }, { tableName: 'payments' });
+    payment_method: { type: DataTypes.STRING, allowNull: false, field: 'payment_method' },
+    transaction_reference: { type: DataTypes.STRING, field: 'transaction_reference' },
+    paid_at: { type: DataTypes.DATE, field: 'paid_at' },
+  }, { tableName: 'payments', timestamps: false });
 };

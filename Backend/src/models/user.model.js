@@ -7,5 +7,5 @@ module.exports = (sequelize, DataTypes) => {
     role: { type: DataTypes.STRING, defaultValue: 'driver' },
     nic: { type: DataTypes.STRING },
     phone: { type: DataTypes.STRING },
-  }, { tableName: 'users' });
+  }, { tableName: 'app_users', timestamps: false });
 };
