@@ -2,17 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 
 export default function FineLookup() {
   const router = useRouter();
   const [referenceNumber, setReferenceNumber] = useState("");
-  const [categoryId, setCategoryId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!referenceNumber || !categoryId) {
-      setError("Please fill in both fields.");
+    if (!referenceNumber) {
+      setError("Please enter your reference number.");
       return;
     }
 
@@ -20,11 +20,10 @@ export default function FineLookup() {
     setLoading(true);
 
     try {
-      // Will connect to Member 2's endpoint later
-      // const res = await axios.get(`/api/fines/${referenceNumber}?category=${categoryId}`);
-      router.push(`/fine/${referenceNumber}?category=${categoryId}`);
+      await axios.get(`http://localhost:5000/api/fines/${referenceNumber}`);
+      router.push(`/fine/${referenceNumber}`);
     } catch (err) {
-      setError("Fine not found. Please check your details.");
+      setError("Fine not found. Please check your reference number.");
     } finally {
       setLoading(false);
     }
@@ -47,28 +46,13 @@ export default function FineLookup() {
           <input
             type="text"
             className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter reference number"
+            placeholder="e.g. TF-2026-100001"
             value={referenceNumber}
             onChange={(e) => setReferenceNumber(e.target.value)}
           />
         </div>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Fine Category ID
-          </label>
-          <input
-            type="text"
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter category ID"
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-          />
-        </div>
-
-        {error && (
-          <p className="text-red-500 text-sm mb-4">{error}</p>
-        )}
+        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
         <button
           onClick={handleSubmit}

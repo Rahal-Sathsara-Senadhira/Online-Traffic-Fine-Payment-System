@@ -9,48 +9,26 @@ export default function Payment() {
     const router = useRouter();
 
     const referenceNumber = searchParams.get("ref");
+    const categoryId = searchParams.get("category");
     const amount = searchParams.get("amount");
 
-    const [cardName, setCardName] = useState("");
-    const [cardNumber, setCardNumber] = useState("");
-    const [expiry, setExpiry] = useState("");
-    const [cvv, setCvv] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState<"CARD" | "ONLINE_BANKING">("CARD");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handlePayment = async () => {
-        if (!cardName || !cardNumber || !expiry || !cvv) {
-            setError("Please fill in all fields.");
-            return;
-        }
-
-        if (cardNumber.length !== 16) {
-            setError("Card number must be 16 digits.");
-            return;
-        }
-
-        if (cvv.length !== 3) {
-            setError("CVV must be 3 digits.");
-            return;
-        }
-
         setError("");
         setLoading(true);
 
         try {
-            // Replace with Member 2's actual payment endpoint later
-            // await axios.post("/api/payments", {
-            //   referenceNumber,
-            //   amount,
-            //   cardName,
-            //   cardNumber,
-            //   expiry,
-            //   cvv,
-            // });
+            const res = await axios.post("http://localhost:5000/api/payments/", {
+                referenceNumber,
+                categoryId,
+                paymentMethod,
+            });
 
-            // Simulate payment for now
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            router.push(`/confirmation?ref=${referenceNumber}`);
+            const { paymentId } = res.data;
+            router.push(`/confirmation?ref=${referenceNumber}&paymentId=${paymentId}`);
         } catch (err) {
             setError("Payment failed. Please try again.");
         } finally {
@@ -75,62 +53,29 @@ export default function Payment() {
                     </p>
                 </div>
 
-                <div className="space-y-4 mb-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Cardholder Name
-                        </label>
-                        <input
-                            type="text"
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Name on card"
-                            value={cardName}
-                            onChange={(e) => setCardName(e.target.value)}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Card Number
-                        </label>
-                        <input
-                            type="text"
-                            maxLength={16}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="16-digit card number"
-                            value={cardNumber}
-                            onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, ""))}
-                        />
-                    </div>
-
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Expiry Date
-                            </label>
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Payment Method
+                    </label>
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-3 border rounded-lg px-4 py-3 cursor-pointer hover:bg-gray-50">
                             <input
-                                type="text"
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="MM/YY"
-                                maxLength={5}
-                                value={expiry}
-                                onChange={(e) => setExpiry(e.target.value)}
+                                type="radio"
+                                name="paymentMethod"
+                                checked={paymentMethod === "CARD"}
+                                onChange={() => setPaymentMethod("CARD")}
                             />
-                        </div>
-
-                        <div className="flex-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                CVV
-                            </label>
+                            <span>Credit / Debit Card</span>
+                        </label>
+                        <label className="flex items-center gap-3 border rounded-lg px-4 py-3 cursor-pointer hover:bg-gray-50">
                             <input
-                                type="password"
-                                maxLength={3}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="3 digits"
-                                value={cvv}
-                                onChange={(e) => setCvv(e.target.value.replace(/\D/g, ""))}
+                                type="radio"
+                                name="paymentMethod"
+                                checked={paymentMethod === "ONLINE_BANKING"}
+                                onChange={() => setPaymentMethod("ONLINE_BANKING")}
                             />
-                        </div>
+                            <span>Online Banking</span>
+                        </label>
                     </div>
                 </div>
 

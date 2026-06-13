@@ -1,126 +1,67 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 
-interface Fine {
-    referenceNumber: string;
-    category: string;
-    amount: number;
-    issuedDate: string;
-    officerName: string;
-    district: string;
-    status: string;
-}
-
-export default function FineDetails() {
-    const params = useParams();
-    const searchParams = useSearchParams();
+export default function FineLookup() {
     const router = useRouter();
-
-    const referenceNumber = params.id as string;
-    const categoryId = searchParams.get("category");
-
-    const [fine, setFine] = useState<Fine | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [referenceNumber, setReferenceNumber] = useState("");
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        // Replace with Member 2's actual endpoint later
-        // axios.get(`/api/fines/${referenceNumber}?category=${categoryId}`)
-        //   .then(res => setFine(res.data))
-        //   .catch(() => setError("Fine not found."))
-        //   .finally(() => setLoading(false));
+    const handleSubmit = async () => {
+        if (!referenceNumber) {
+            setError("Please enter your reference number.");
+            return;
+        }
 
-        // Dummy data for now
-        setTimeout(() => {
-            setFine({
-                referenceNumber,
-                category: "Speeding",
-                amount: 2500,
-                issuedDate: "2026-06-10",
-                officerName: "Officer Perera",
-                district: "Colombo",
-                status: "Unpaid",
-            });
+        setError("");
+        setLoading(true);
+
+        try {
+            await axios.get(`http://localhost:5000/api/fines/${referenceNumber}`);
+            router.push(`/fine/${referenceNumber}`);
+        } catch (err) {
+            setError("Fine not found. Please check your reference number.");
+        } finally {
             setLoading(false);
-        }, 800);
-    }, [referenceNumber, categoryId]);
-
-    if (loading)
-        return (
-            <main className="min-h-screen flex items-center justify-center bg-gray-100">
-                <p className="text-gray-500">Loading fine details...</p>
-            </main>
-        );
-
-    if (error)
-        return (
-            <main className="min-h-screen flex items-center justify-center bg-gray-100">
-                <p className="text-red-500">{error}</p>
-            </main>
-        );
+        }
+    };
 
     return (
         <main className="min-h-screen flex items-center justify-center bg-gray-100">
             <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
-                <h1 className="text-2xl font-bold text-center text-blue-700 mb-6">
-                    Fine Details
+                <h1 className="text-2xl font-bold text-center text-blue-700 mb-2">
+                    Sri Lanka Police
                 </h1>
+                <h2 className="text-lg text-center text-gray-600 mb-6">
+                    Traffic Fine Payment Portal
+                </h2>
 
-                <div className="space-y-3 mb-6">
-                    <Row label="Reference Number" value={fine!.referenceNumber} />
-                    <Row label="Category" value={fine!.category} />
-                    <Row label="District" value={fine!.district} />
-                    <Row label="Issued Date" value={fine!.issuedDate} />
-                    <Row label="Officer" value={fine!.officerName} />
-                    <Row
-                        label="Amount"
-                        value={`LKR ${fine!.amount.toLocaleString()}`}
-                    />
-                    <Row
-                        label="Status"
-                        value={fine!.status}
-                        valueClass="text-red-500 font-semibold"
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Fine Reference Number
+                    </label>
+                    <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g. TF-2026-100001"
+                        value={referenceNumber}
+                        onChange={(e) => setReferenceNumber(e.target.value)}
                     />
                 </div>
 
-                <button
-                    onClick={() =>
-                        router.push(
-                            `/payment?ref=${fine!.referenceNumber}&amount=${fine!.amount}`
-                        )
-                    }
-                    className="w-full bg-blue-700 text-white py-2 rounded-lg hover:bg-blue-800 transition"
-                >
-                    Proceed to Payment
-                </button>
+                {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
                 <button
-                    onClick={() => router.push("/")}
-                    className="w-full mt-3 border border-gray-300 text-gray-600 py-2 rounded-lg hover:bg-gray-50 transition"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="w-full bg-blue-700 text-white py-2 rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
                 >
-                    Go Back
+                    {loading ? "Searching..." : "Search Fine"}
                 </button>
             </div>
         </main>
-    );
-}
-
-function Row({
-    label,
-    value,
-    valueClass = "text-gray-800",
-}: {
-    label: string;
-    value: string;
-    valueClass?: string;
-}) {
-    return (
-        <div className="flex justify-between border-b pb-2">
-            <span className="text-gray-500 text-sm">{label}</span>
-            <span className={`text-sm ${valueClass}`}>{value}</span>
-        </div>
     );
 }
