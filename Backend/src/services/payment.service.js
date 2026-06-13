@@ -1,21 +1,8 @@
 const { sequelize } = require('../models');
+const fineRepo = require('../repositories/fine.repository');
 const paymentRepo = require('../repositories/payment.repository');
-
-async function processPayment({ fineId, amount, method, transactionRef }) {
-  // process payment atomically: create payment and mark fine paid
-  return await sequelize.transaction(async (t) => {
-    const options = { transaction: t };
-    const payment = await paymentRepo.createPayment({ fineId, amount, method, transactionRef }, options);
-    return payment;
-  });
-}
-
-module.exports = { processPayment };
-const { v4: uuidv4 } = require('uuid');
-const fineRepo    = require('../repositories/fine.repository');
-const paymentRepo = require('../repositories/payment.repository');
-const smsService  = require('./sms.service');
-const ApiError    = require('../utils/ApiError');
+const smsService = require('./sms.service');
+const ApiError = require('../utils/ApiError');
 
 async function processPayment({ referenceNumber, categoryId, paymentMethod }) {
   const fine = await fineRepo.findByReferenceNumber(referenceNumber);
@@ -25,22 +12,26 @@ async function processPayment({ referenceNumber, categoryId, paymentMethod }) {
     throw new ApiError(422, 'CATEGORY_MISMATCH', 'Category ID does not match this fine');
   }
 
-  if (fine.status === 'PAID') {
+  if (fine.status === 'paid' || fine.status === 'PAID') {
     throw new ApiError(409, 'FINE_ALREADY_PAID', 'This fine has already been paid');
   }
 
   const transactionReference = `TXN-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`;
-  const payment = await paymentRepo.create({
-    id: uuidv4(),
-    fineId: fine.id,
-    amount: fine.amount,
-    paymentMethod,
-    transactionReference,
+
+  const payment = await sequelize.transaction(async (t) => {
+    const options = { transaction: t };
+    const createdPayment = await paymentRepo.createPayment({
+      fineId: fine.id,
+      amount: fine.amount,
+      method: paymentMethod.toLowerCase(),
+      transactionRef: transactionReference,
+    }, options);
+
+    await fineRepo.updateStatus(fine.id, 'paid', options);
+
+    return createdPayment;
   });
 
-  await fineRepo.updateStatus(fine.id, 'PAID');
-
-  // Fire-and-forget — client gets response immediately
   smsService.sendPaymentConfirmation(fine).catch((err) =>
     console.error('SMS notification failed:', err.message)
   );

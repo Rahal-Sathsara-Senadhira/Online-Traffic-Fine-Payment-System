@@ -1,4 +1,4 @@
-const { Payment, Fine, sequelize } = require('../models');
+const { Payment, Fine } = require('../models');
 const { v4: uuidv4 } = require('uuid');
 
 async function createPayment({ fineId, amount, method, transactionRef }, options = {}) {
@@ -13,14 +13,20 @@ async function createPayment({ fineId, amount, method, transactionRef }, options
     paid_at: new Date(),
   }, options);
 
-  // update fine to paid (if using a transaction, pass it via options.transaction)
-  await Fine.update({ status: 'paid', paid_at: new Date(), payment_id: id }, { where: { id: fineId }, transaction: options.transaction });
+  await Fine.update(
+    { status: 'paid', paid_at: new Date(), payment_id: id },
+    { where: { id: fineId }, transaction: options.transaction }
+  );
 
   return payment.get({ plain: true });
 }
 
 async function findById(id) {
-  const p = await Payment.findByPk(id);
+  const p = await Payment.findByPk(id, {
+    include: [
+      { model: Fine, as: 'fine', attributes: ['id', 'reference_number', 'driver_name', 'vehicle_number'] },
+    ],
+  });
   return p ? p.get({ plain: true }) : null;
 }
 
@@ -30,27 +36,3 @@ async function findByFineId(fineId) {
 }
 
 module.exports = { createPayment, findById, findByFineId };
-const db = require('../config/db');
-
-async function create({ id, fineId, amount, paymentMethod, transactionReference }) {
-  await db.query(
-    `INSERT INTO payments (id, fine_id, amount, payment_method, transaction_reference)
-     VALUES (?, ?, ?, ?, ?)`,
-    [id, fineId, amount, paymentMethod, transactionReference]
-  );
-  const [rows] = await db.query('SELECT * FROM payments WHERE id = ?', [id]);
-  return rows[0];
-}
-
-async function findById(id) {
-  const [rows] = await db.query(
-    `SELECT p.*, f.reference_number, f.driver_name, f.vehicle_number
-     FROM payments p
-     JOIN fines f ON p.fine_id = f.id
-     WHERE p.id = ?`,
-    [id]
-  );
-  return rows[0] ?? null;
-}
-
-module.exports = { create, findById };

@@ -44,8 +44,8 @@ async function create({ categoryId, officerId, driverNic, driverName, vehicleNum
   return { id: fine.id, referenceNumber };
 }
 
-async function updateStatus(id, status) {
-  await Fine.update({ status }, { where: { id } });
+async function updateStatus(id, status, options = {}) {
+  await Fine.update({ status }, { where: { id }, ...options });
 }
 
 module.exports = { findByReferenceNumber, findAll, create, updateStatus };
