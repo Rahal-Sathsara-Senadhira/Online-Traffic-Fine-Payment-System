@@ -1,0 +1,44 @@
+{
+  "name": "traffic-fine-backend",
+  "version": "1.0.0",
+  "description": "Online Traffic Fine Payment System — REST API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest --runInBand",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "bcryptjs": "^2.4.3",
+<<<<<<< HEAD
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.19.2",
+=======
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2",
+>>>>>>> 1f85b1406a15be561f277a81868d6130d1cf922a
+    "express-validator": "^7.1.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.7.0",
+    "morgan": "^1.10.0",
+<<<<<<< HEAD
+    "mysql2": "^3.22.5",
+    "sequelize": "^6.37.8",
+=======
+    "mysql2": "^3.10.0",
+    "sequelize": "^6.37.8",
+    "sequelize-cli": "^6.6.5",
+>>>>>>> 1f85b1406a15be561f277a81868d6130d1cf922a
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.0.0"
+  }
+}
