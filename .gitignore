@@ -87,14 +87,8 @@ desktop.ini
 *.tmp
 *.bak
 *.orig
-coverage/
-<<<<<<< HEAD
-=======
 *.pdf
-.env
-node_modules/
-.next/
->>>>>>> cd9256a (fix: update admin login form to use username and secure local credentials)
+*.sqlite
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies

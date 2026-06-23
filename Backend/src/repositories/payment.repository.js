@@ -13,7 +13,7 @@ async function createPayment({ fineId, amount, paymentMethod, transactionReferen
   }, options);
 
   await Fine.update(
-    { status: 'PAID', paid_at: new Date() },
+    { status: 'PAID' },
     { where: { id: fineId }, transaction: options.transaction }
   );
 
