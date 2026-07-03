@@ -1,11 +1,23 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
+const mysql = require('mysql2/promise');
 const { sequelize, FineCategory, Officer, Fine, Payment, User } = require('../src/models');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
 async function seed() {
   try {
+    // Create the database if it doesn't exist
+    const connection = await mysql.createConnection({
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+    });
+    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME}\`;`);
+    await connection.end();
+    console.log(`✓ Database '${process.env.DB_NAME}' ensured.`);
+
     // Connect to database
     await sequelize.authenticate();
     console.log('✓ Connected to MySQL via Sequelize.');

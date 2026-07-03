@@ -4,7 +4,7 @@ const required = [
 ];
 
 required.forEach((key) => {
-  if (!process.env[key]) {
+  if (process.env[key] === undefined) {
     throw new Error(`Missing required environment variable: ${key}`);
   }
 });
