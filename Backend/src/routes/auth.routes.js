@@ -8,12 +8,12 @@ const { validate }   = require('../middleware/validate.middleware');
 const router = Router();
 
 const loginRules = [
-  body('username').notEmpty().withMessage('username is required'),
+  body('email').isEmail().withMessage('valid email is required'),
   body('password').notEmpty().withMessage('password is required'),
 ];
 
 const registerRules = [
-  body('username').notEmpty().isLength({ min: 3 }).withMessage('username must be at least 3 characters'),
+  body('email').isEmail().withMessage('valid email is required'),
   body('password').isLength({ min: 8 }).withMessage('password must be at least 8 characters'),
 ];
 
