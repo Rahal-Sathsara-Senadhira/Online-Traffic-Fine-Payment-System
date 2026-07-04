@@ -9,7 +9,10 @@ async function totalsByDistrict({ startDate, endDate } = {}) {
   if (endDate) where.issued_at[Op.lte] = endDate;
 
   const rows = await Fine.findAll({
-    attributes: [[Sequelize.fn('SUM', Sequelize.col('Fine.amount')), 'total'], [Sequelize.col('officer.district'), 'district']],
+    attributes: [
+      [Sequelize.fn('SUM', Sequelize.col('Fine.amount')), 'total'],
+      [Sequelize.col('officer.district'), 'district'],
+    ],
     include: [{ model: Officer, as: 'officer', attributes: [] }],
     where,
     group: ['officer.district'],
@@ -25,7 +28,10 @@ async function totalsByCategory({ startDate, endDate } = {}) {
   if (endDate) where.issued_at[Op.lte] = endDate;
 
   const rows = await Fine.findAll({
-    attributes: [[Sequelize.fn('SUM', Sequelize.col('Fine.amount')), 'total'], [Sequelize.col('category.name'), 'category_name']],
+    attributes: [
+      [Sequelize.fn('SUM', Sequelize.col('Fine.amount')), 'total'],
+      [Sequelize.col('category.name'), 'category_name'],
+    ],
     include: [{ model: FineCategory, as: 'category', attributes: [] }],
     where,
     group: ['category.id', 'category.name'],

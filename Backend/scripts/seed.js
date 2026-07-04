@@ -111,7 +111,7 @@ async function seed() {
         name: 'Admin User',
         email: 'admin@traffic-fines.com',
         password_hash: adminPassword,
-        role: 'admin',
+        role: 'ADMIN',
         phone: '0701234567',
       },
       { ignoreDuplicates: true }

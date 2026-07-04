@@ -6,26 +6,32 @@ import { isAuthenticated, clearToken } from "@/lib/auth";
 import api from "@/lib/api";
 import Link from "next/link";
 
-interface DistrictStat { district: string; total: number; count: number }
-interface CategoryStat { category: string; total: number; count: number }
-interface Summary { districts: DistrictStat[]; categories: CategoryStat[] }
+interface DistrictStat  { district: string; total: string }
+interface CategoryStat  { category_name: string; total: string }
+interface Summary       { districts: DistrictStat[]; categories: CategoryStat[] }
 
 export default function Dashboard() {
     const router = useRouter();
-    const [summary, setSummary] = useState<Summary | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const [summary,    setSummary]    = useState<Summary | null>(null);
+    const [totalFines, setTotalFines] = useState<number>(0);
+    const [loading,    setLoading]    = useState(true);
+    const [error,      setError]      = useState("");
 
     useEffect(() => {
         if (!isAuthenticated()) { router.replace("/"); return; }
-        api.get("/api/reports/summary")
-            .then((res) => setSummary(res.data.data))
-            .catch(() => setError("Failed to load summary."))
+        Promise.all([
+            api.get("/api/reports/summary"),
+            api.get("/api/fines"),
+        ])
+            .then(([sumRes, finesRes]) => {
+                setSummary(sumRes.data.data);
+                setTotalFines(finesRes.data.length);
+            })
+            .catch(() => setError("Failed to load dashboard data."))
             .finally(() => setLoading(false));
     }, [router]);
 
     const totalRevenue = summary?.districts.reduce((s, d) => s + Number(d.total), 0) ?? 0;
-    const totalFines   = summary?.districts.reduce((s, d) => s + Number(d.count), 0) ?? 0;
 
     return (
         <div className="min-h-screen bg-slate-900 text-white">
@@ -48,7 +54,7 @@ export default function Dashboard() {
                 <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
 
                 {loading && <p className="text-slate-400">Loading...</p>}
-                {error && <p className="text-red-400">{error}</p>}
+                {error   && <p className="text-red-400">{error}</p>}
 
                 {summary && (
                     <>
@@ -67,12 +73,11 @@ export default function Dashboard() {
                         {/* By district */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-                                <h3 className="text-lg font-semibold mb-4">By District</h3>
+                                <h3 className="text-lg font-semibold mb-4">Revenue by District</h3>
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="text-slate-400 text-left border-b border-slate-700">
                                             <th className="pb-2">District</th>
-                                            <th className="pb-2 text-right">Fines</th>
                                             <th className="pb-2 text-right">Revenue</th>
                                         </tr>
                                     </thead>
@@ -80,7 +85,6 @@ export default function Dashboard() {
                                         {summary.districts.map((d) => (
                                             <tr key={d.district} className="border-b border-slate-700/50">
                                                 <td className="py-2">{d.district}</td>
-                                                <td className="py-2 text-right">{d.count}</td>
                                                 <td className="py-2 text-right text-blue-400">LKR {Number(d.total).toLocaleString()}</td>
                                             </tr>
                                         ))}
@@ -90,20 +94,18 @@ export default function Dashboard() {
 
                             {/* By category */}
                             <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-                                <h3 className="text-lg font-semibold mb-4">By Category</h3>
+                                <h3 className="text-lg font-semibold mb-4">Revenue by Category</h3>
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="text-slate-400 text-left border-b border-slate-700">
                                             <th className="pb-2">Category</th>
-                                            <th className="pb-2 text-right">Fines</th>
                                             <th className="pb-2 text-right">Revenue</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {summary.categories.map((c) => (
-                                            <tr key={c.category} className="border-b border-slate-700/50">
-                                                <td className="py-2">{c.category}</td>
-                                                <td className="py-2 text-right">{c.count}</td>
+                                            <tr key={c.category_name} className="border-b border-slate-700/50">
+                                                <td className="py-2">{c.category_name}</td>
                                                 <td className="py-2 text-right text-blue-400">LKR {Number(c.total).toLocaleString()}</td>
                                             </tr>
                                         ))}
