@@ -104,7 +104,7 @@ async function seed() {
     console.log(`✓ Seeded ${paidFines.length} payments.`);
 
     // ── Admin User ────────────────────────────────────────────────────────────
-    const adminPassword = await bcrypt.hash('admin123', 10);
+    const adminPassword = await bcrypt.hash('admin123', 12);
     await User.create(
       {
         id: uuidv4(),
@@ -119,7 +119,7 @@ async function seed() {
     console.log('✓ Seeded admin user (email: admin@traffic-fines.com, password: admin123)');
 
     // ── Officer Users ─────────────────────────────────────────────────────────
-    const officerPassword = await bcrypt.hash('officer123', 10);
+    const officerPassword = await bcrypt.hash('officer123', 12);
     const officerUsers = [
       { name: 'Sunil Perera',      email: 'pc1001@police.lk', phone: '0771234567', officerIdx: 0 },
       { name: 'Nimal Silva',       email: 'pc1002@police.lk', phone: '0772345678', officerIdx: 1 },

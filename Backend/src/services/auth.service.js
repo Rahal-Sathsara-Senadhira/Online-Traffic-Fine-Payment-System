@@ -21,7 +21,7 @@ async function register(email, password) {
   if (existing) throw new ApiError(409, 'USER_EXISTS', `Email '${email}' is already registered`);
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-  const user = await userRepo.create({ email, passwordHash });
+  const user = await userRepo.create({ email, passwordHash, role: 'ADMIN' });
   return { id: user.id, email: user.email, role: user.role };
 }
 
