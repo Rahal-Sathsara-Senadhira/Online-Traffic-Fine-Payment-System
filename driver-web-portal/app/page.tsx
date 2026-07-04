@@ -34,7 +34,7 @@ export default function Home() {
                     </label>
                     <input
                         type="text"
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="e.g. TF-2026-100001"
                         value={referenceNumber}
                         onChange={(e) => setReferenceNumber(e.target.value)}

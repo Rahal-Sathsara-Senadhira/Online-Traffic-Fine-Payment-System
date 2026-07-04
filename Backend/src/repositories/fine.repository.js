@@ -7,7 +7,7 @@ async function findByReferenceNumber(referenceNumber) {
     include: [
       { model: FineCategory, as: 'category', attributes: ['id', 'name'] },
       { model: Officer, as: 'officer', attributes: ['id', 'phone', 'badge_number', 'district'] },
-      { model: Payment, as: 'payment', attributes: ['id', 'amount', 'status', 'transaction_ref', 'paid_at'] },
+      { model: Payment, as: 'payment', attributes: ['id', 'amount', 'transaction_reference', 'paid_at'] },
     ],
   });
   return fine ? fine.get({ plain: true }) : null;
