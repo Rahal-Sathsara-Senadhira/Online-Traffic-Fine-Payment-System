@@ -18,7 +18,7 @@ const createFineRules = [
 ];
 
 router.get('/:referenceNumber', param('referenceNumber').notEmpty().withMessage('referenceNumber is required'), validate, FineController.getByReference);
-router.post('/',   protect, requireRole('ADMIN'), createFineRules, validate, FineController.createFine);
+router.post('/',   protect, requireRole('ADMIN', 'OFFICER'), createFineRules, validate, FineController.createFine);
 router.get('/',    protect, requireRole('ADMIN'), FineController.listFines);
 
 module.exports = router;

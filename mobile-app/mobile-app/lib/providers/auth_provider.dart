@@ -22,6 +22,7 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   bool get loading => _loading;
   bool get isAdmin => _user?.isAdmin ?? false;
+  bool get isOfficer => _user?.isOfficer ?? false;
 
   Future<void> _checkSession() async {
     final loggedIn = await _authService.isLoggedIn();

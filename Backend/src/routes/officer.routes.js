@@ -6,7 +6,7 @@ const router = Router();
 
 const officerController = require('../controllers/officer.controller');
 
-router.get('/',    protect, requireRole('ADMIN'), officerController.listOfficers);
+router.get('/',    protect, requireRole('ADMIN', 'OFFICER'), officerController.listOfficers);
 router.post('/',   protect, requireRole('ADMIN'), (req, res) => res.status(501).json({ message: 'Not implemented' }));
 router.get('/:id', protect, requireRole('ADMIN'), (req, res) => res.status(501).json({ message: 'Not implemented' }));
 

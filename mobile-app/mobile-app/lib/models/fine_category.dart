@@ -16,7 +16,7 @@ class FineCategory {
       id: json['id'] as String,
       name: json['name'] as String,
       description: json['description'] as String?,
-      defaultAmount: (json['default_amount'] as num?)?.toDouble() ?? 0.0,
+      defaultAmount: json['default_amount'] != null ? double.parse(json['default_amount'].toString()) : 0.0,
     );
   }
 

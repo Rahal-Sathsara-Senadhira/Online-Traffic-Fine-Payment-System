@@ -74,6 +74,43 @@ class ApiService {
     }
   }
 
+  Future<List<dynamic>> getList(
+    String path, {
+    bool requiresAuth = false,
+  }) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.baseUrl}$path'),
+            headers: await _headers(requiresAuth: requiresAuth),
+          )
+          .timeout(AppConstants.requestTimeout);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return jsonDecode(response.body) as List<dynamic>;
+      }
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        statusCode: response.statusCode,
+        errorCode: body['error'] as String? ?? 'UNKNOWN_ERROR',
+        message: body['message'] as String? ?? 'An unexpected error occurred.',
+      );
+    } on SocketException {
+      throw ApiException(
+        statusCode: 0,
+        errorCode: 'NETWORK_ERROR',
+        message: 'Cannot connect to server. Please check your connection.',
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        statusCode: 0,
+        errorCode: 'UNKNOWN_ERROR',
+        message: 'An unexpected error occurred.',
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> post(
     String path,
     Map<String, dynamic> body, {

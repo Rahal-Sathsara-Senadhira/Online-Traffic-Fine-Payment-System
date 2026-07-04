@@ -86,11 +86,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     CustomTextField(
                       controller: _usernameCtrl,
-                      label: 'Username',
-                      hint: 'Enter your username',
-                      prefixIcon: Icons.person_outline,
+                      label: 'Email',
+                      hint: 'e.g. pc1001@police.lk',
+                      prefixIcon: Icons.email_outlined,
                       validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Username is required' : null,
+                          (v == null || v.trim().isEmpty) ? 'Email is required' : null,
                     ),
                     const SizedBox(height: 16),
                     CustomTextField(

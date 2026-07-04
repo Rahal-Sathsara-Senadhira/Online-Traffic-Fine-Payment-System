@@ -39,7 +39,7 @@ class Fine {
       driverName: json['driver_name'] as String,
       vehicleNumber: json['vehicle_number'] as String,
       location: json['location'] as String,
-      amount: (json['amount'] as num).toDouble(),
+      amount: double.parse(json['amount'].toString()),
       status: json['status'] as String,
       category: json['category'] != null
           ? FineCategory.fromJson(json['category'] as Map<String, dynamic>)

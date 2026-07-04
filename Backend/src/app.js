@@ -13,8 +13,17 @@ const reportRoutes   = require('./routes/report.routes');
 const app = express();
 
 app.use(helmet());
+const allowedOrigins = [process.env.ADMIN_PORTAL_URL, process.env.DRIVER_PORTAL_URL];
 app.use(cors({
-  origin: [process.env.ADMIN_PORTAL_URL, process.env.DRIVER_PORTAL_URL],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile native, curl, Postman)
+    if (!origin) return callback(null, true);
+    // Allow configured portals + any localhost port (Flutter web uses dynamic ports)
+    if (allowedOrigins.includes(origin) || /^http:\/\/localhost:\d+$/.test(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));

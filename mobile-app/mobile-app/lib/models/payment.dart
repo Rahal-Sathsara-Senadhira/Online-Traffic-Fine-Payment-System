@@ -19,7 +19,7 @@ class Payment {
     return Payment(
       paymentId: json['paymentId'] as String,
       referenceNumber: json['referenceNumber'] as String,
-      amount: (json['amount'] as num).toDouble(),
+      amount: double.parse(json['amount'].toString()),
       transactionReference: json['transactionReference'] as String,
       paidAt: DateTime.parse(json['paidAt'] as String),
       message: json['message'] as String? ?? 'Payment successful.',

@@ -118,6 +118,31 @@ async function seed() {
     );
     console.log('✓ Seeded admin user (email: admin@traffic-fines.com, password: admin123)');
 
+    // ── Officer Users ─────────────────────────────────────────────────────────
+    const officerPassword = await bcrypt.hash('officer123', 10);
+    const officerUsers = [
+      { name: 'Sunil Perera',      email: 'pc1001@police.lk', phone: '0771234567' },
+      { name: 'Nimal Silva',       email: 'pc1002@police.lk', phone: '0772345678' },
+      { name: 'Kamal Fernando',    email: 'pc1003@police.lk', phone: '0773456789' },
+      { name: 'Ruwan Rajapaksa',   email: 'pc1004@police.lk', phone: '0774567890' },
+      { name: 'Asanka Bandara',    email: 'pc1005@police.lk', phone: '0775678901' },
+      { name: 'Chaminda Herath',   email: 'pc1006@police.lk', phone: '0776789012' },
+      { name: 'Lasith Jayasuriya', email: 'pc1007@police.lk', phone: '0777890123' },
+      { name: 'Dinesh Wickrama',   email: 'pc1008@police.lk', phone: '0778901234' },
+    ];
+    await User.bulkCreate(
+      officerUsers.map((o) => ({
+        id: uuidv4(),
+        name: o.name,
+        email: o.email,
+        password_hash: officerPassword,
+        role: 'OFFICER',
+        phone: o.phone,
+      })),
+      { ignoreDuplicates: true }
+    );
+    console.log(`✓ Seeded ${officerUsers.length} officer users (password: officer123)`);
+
     console.log('\n✓ Seed completed successfully!');
     process.exit(0);
   } catch (err) {

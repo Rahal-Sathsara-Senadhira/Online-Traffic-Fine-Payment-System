@@ -12,7 +12,7 @@ class AuthService {
 
   Future<User> login(String username, String password) async {
     final data = await _api.post('/auth/login', {
-      'username': username,
+      'email': username,
       'password': password,
     });
 

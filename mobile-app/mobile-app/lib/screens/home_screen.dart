@@ -57,7 +57,7 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              if (auth.isAdmin) ...[
+              if (auth.isOfficer) ...[
                 _ActionCard(
                   icon: Icons.add_circle_rounded,
                   color: const Color(0xFF2E7D32),

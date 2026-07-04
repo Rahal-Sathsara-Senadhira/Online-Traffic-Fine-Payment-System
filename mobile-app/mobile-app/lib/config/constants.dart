@@ -1,7 +1,7 @@
 class AppConstants {
   // Change this to your server's IP when running on a physical device
   // Use 10.0.2.2 for Android emulator (maps to host machine localhost)
-  static const String baseUrl = 'http://10.0.2.2:8080/api';
+  static const String baseUrl = 'http://localhost:4000/api';
 
   static const String tokenKey = 'auth_token';
   static const String userKey = 'user_data';

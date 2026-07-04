@@ -6,7 +6,7 @@ async function findByReferenceNumber(referenceNumber) {
     where: { reference_number: referenceNumber },
     include: [
       { model: FineCategory, as: 'category', attributes: ['id', 'name'] },
-      { model: Officer, as: 'officer', attributes: ['id', 'phone', 'badge_number', 'district'] },
+      { model: Officer, as: 'officer', attributes: ['id', 'full_name', 'phone', 'badge_number', 'district'] },
       { model: Payment, as: 'payment', attributes: ['id', 'amount', 'transaction_reference', 'paid_at'] },
     ],
   });

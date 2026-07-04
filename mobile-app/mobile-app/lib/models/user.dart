@@ -16,6 +16,7 @@ class User {
   });
 
   bool get isAdmin => role == 'ADMIN';
+  bool get isOfficer => role == 'OFFICER' || role == 'ADMIN';
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
