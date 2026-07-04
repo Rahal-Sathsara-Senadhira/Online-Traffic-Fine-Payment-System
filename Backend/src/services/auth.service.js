@@ -12,7 +12,7 @@ async function login(email, password) {
   const match = await bcrypt.compare(password, user.password_hash);
   if (!match) throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
 
-  const token = generateToken({ id: user.id, role: user.role });
+  const token = generateToken({ id: user.id, role: user.role, officer_id: user.officer_id ?? null });
   return { token, expiresIn: parseInt(process.env.JWT_EXPIRES_IN || '86400') };
 }
 

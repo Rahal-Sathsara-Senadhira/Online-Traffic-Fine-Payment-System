@@ -29,7 +29,7 @@ async function findAll({ status } = {}) {
 async function create({ categoryId, officerId, driverNic, driverName, vehicleNumber, location, amount }) {
   const id = uuidv4();
   const referenceNumber = `TF-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
-  const fine = await Fine.create({
+  await Fine.create({
     id,
     reference_number: referenceNumber,
     category_id: categoryId,
@@ -41,7 +41,7 @@ async function create({ categoryId, officerId, driverNic, driverName, vehicleNum
     amount,
     issued_at: new Date(),
   });
-  return { id: fine.id, referenceNumber };
+  return findByReferenceNumber(referenceNumber);
 }
 
 async function updateStatus(id, status, options = {}) {

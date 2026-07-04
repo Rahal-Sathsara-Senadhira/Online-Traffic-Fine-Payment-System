@@ -9,7 +9,7 @@ const router = Router();
 
 const createFineRules = [
   body('categoryId').notEmpty().withMessage('categoryId is required'),
-  body('officerId').notEmpty().withMessage('officerId is required'),
+  body('officerId').optional({ nullable: true, checkFalsy: true }).isString(),
   body('driverNic').notEmpty().withMessage('driverNic is required'),
   body('amount').isFloat({ min: 0 }).withMessage('amount must be a positive number'),
   body('driverName').optional().isString(),

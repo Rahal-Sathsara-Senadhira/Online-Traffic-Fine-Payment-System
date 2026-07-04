@@ -10,6 +10,8 @@ class AuthService {
 
   AuthService(this._api);
 
+  static const String _emailKey = 'user_email';
+
   Future<User> login(String username, String password) async {
     final data = await _api.post('/auth/login', {
       'email': username,
@@ -18,8 +20,8 @@ class AuthService {
 
     final token = data['token'] as String;
     await _storage.write(key: AppConstants.tokenKey, value: token);
+    await _storage.write(key: _emailKey, value: username);
 
-    // Decode the JWT payload to extract user info
     final payload = _decodeJwt(token);
     return User(
       id: payload['id'] as String,
@@ -30,6 +32,7 @@ class AuthService {
 
   Future<void> logout() async {
     await _storage.delete(key: AppConstants.tokenKey);
+    await _storage.delete(key: _emailKey);
   }
 
   Future<bool> isLoggedIn() async {
@@ -42,6 +45,26 @@ class AuthService {
           .isAfter(DateTime.now());
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<User?> getStoredUser() async {
+    final token = await _storage.read(key: AppConstants.tokenKey);
+    final email = await _storage.read(key: _emailKey);
+    if (token == null) return null;
+    try {
+      final payload = _decodeJwt(token);
+      final exp = payload['exp'] as int;
+      if (DateTime.fromMillisecondsSinceEpoch(exp * 1000).isBefore(DateTime.now())) {
+        return null;
+      }
+      return User(
+        id: payload['id'] as String,
+        username: email ?? '',
+        role: payload['role'] as String,
+      );
+    } catch (_) {
+      return null;
     }
   }
 

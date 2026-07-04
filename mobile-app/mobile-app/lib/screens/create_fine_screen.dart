@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/fine_category.dart';
 import '../models/officer.dart';
+import '../providers/auth_provider.dart';
 import '../providers/fine_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_button.dart';
@@ -50,8 +51,11 @@ class _CreateFineScreenState extends State<CreateFineScreen> {
   Future<void> _loadFormData() async {
     setState(() { _loadingData = true; _loadError = null; });
     try {
+      final isAdmin = context.read<AuthProvider>().isAdmin;
       final catList = await _api.getList('/categories');
-      final offList = await _api.getList('/officers', requiresAuth: true);
+      final offList = isAdmin
+          ? await _api.getList('/officers', requiresAuth: true)
+          : <dynamic>[];
       setState(() {
         _categories = catList
             .whereType<Map<String, dynamic>>()
@@ -70,12 +74,14 @@ class _CreateFineScreenState extends State<CreateFineScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedCategory == null || _selectedOfficer == null) return;
+    final isAdmin = context.read<AuthProvider>().isAdmin;
+    if (_selectedCategory == null) return;
+    if (isAdmin && _selectedOfficer == null) return;
 
     final prov = context.read<FineProvider>();
     final success = await prov.issueFine(
       categoryId: _selectedCategory!.id,
-      officerId: _selectedOfficer!.id,
+      officerId: _selectedOfficer?.id ?? '',
       driverNic: _driverNicCtrl.text.trim(),
       driverName: _driverNameCtrl.text.trim(),
       vehicleNumber: _vehicleCtrl.text.trim().toUpperCase(),
@@ -114,6 +120,7 @@ class _CreateFineScreenState extends State<CreateFineScreen> {
   @override
   Widget build(BuildContext context) {
     final prov = context.watch<FineProvider>();
+    final isAdmin = context.watch<AuthProvider>().isAdmin;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -176,22 +183,25 @@ class _CreateFineScreenState extends State<CreateFineScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          DropdownButtonFormField<Officer>(
-                            initialValue: _selectedOfficer,
-                            decoration: _dropdownDecoration('Issuing Officer *', Icons.badge_outlined),
-                            isExpanded: true,
-                            items: _officers
-                                .map((o) => DropdownMenuItem(
-                                      value: o,
-                                      child: Text(
-                                        '${o.fullName}  —  ${o.badgeNumber}',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ))
-                                .toList(),
-                            onChanged: (o) => setState(() => _selectedOfficer = o),
-                            validator: (v) => v == null ? 'Please select an officer' : null,
-                          ),
+                          if (isAdmin) ...[
+                            DropdownButtonFormField<Officer>(
+                              initialValue: _selectedOfficer,
+                              decoration: _dropdownDecoration('Issuing Officer *', Icons.badge_outlined),
+                              isExpanded: true,
+                              items: _officers
+                                  .map((o) => DropdownMenuItem(
+                                        value: o,
+                                        child: Text(
+                                          '${o.fullName}  —  ${o.badgeNumber}',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ))
+                                  .toList(),
+                              onChanged: (o) => setState(() => _selectedOfficer = o),
+                              validator: (v) => v == null ? 'Please select an officer' : null,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           const SizedBox(height: 24),
 
                           _SectionHeader(title: 'Driver Information', icon: Icons.person_outlined),

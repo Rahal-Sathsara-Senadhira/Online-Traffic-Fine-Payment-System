@@ -25,8 +25,13 @@ class AuthProvider extends ChangeNotifier {
   bool get isOfficer => _user?.isOfficer ?? false;
 
   Future<void> _checkSession() async {
-    final loggedIn = await _authService.isLoggedIn();
-    _status = loggedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+    final user = await _authService.getStoredUser();
+    if (user != null) {
+      _user = user;
+      _status = AuthStatus.authenticated;
+    } else {
+      _status = AuthStatus.unauthenticated;
+    }
     notifyListeners();
   }
 

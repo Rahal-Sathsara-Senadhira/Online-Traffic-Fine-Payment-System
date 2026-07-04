@@ -121,14 +121,14 @@ async function seed() {
     // ── Officer Users ─────────────────────────────────────────────────────────
     const officerPassword = await bcrypt.hash('officer123', 10);
     const officerUsers = [
-      { name: 'Sunil Perera',      email: 'pc1001@police.lk', phone: '0771234567' },
-      { name: 'Nimal Silva',       email: 'pc1002@police.lk', phone: '0772345678' },
-      { name: 'Kamal Fernando',    email: 'pc1003@police.lk', phone: '0773456789' },
-      { name: 'Ruwan Rajapaksa',   email: 'pc1004@police.lk', phone: '0774567890' },
-      { name: 'Asanka Bandara',    email: 'pc1005@police.lk', phone: '0775678901' },
-      { name: 'Chaminda Herath',   email: 'pc1006@police.lk', phone: '0776789012' },
-      { name: 'Lasith Jayasuriya', email: 'pc1007@police.lk', phone: '0777890123' },
-      { name: 'Dinesh Wickrama',   email: 'pc1008@police.lk', phone: '0778901234' },
+      { name: 'Sunil Perera',      email: 'pc1001@police.lk', phone: '0771234567', officerIdx: 0 },
+      { name: 'Nimal Silva',       email: 'pc1002@police.lk', phone: '0772345678', officerIdx: 1 },
+      { name: 'Kamal Fernando',    email: 'pc1003@police.lk', phone: '0773456789', officerIdx: 2 },
+      { name: 'Ruwan Rajapaksa',   email: 'pc1004@police.lk', phone: '0774567890', officerIdx: 3 },
+      { name: 'Asanka Bandara',    email: 'pc1005@police.lk', phone: '0775678901', officerIdx: 4 },
+      { name: 'Chaminda Herath',   email: 'pc1006@police.lk', phone: '0776789012', officerIdx: 5 },
+      { name: 'Lasith Jayasuriya', email: 'pc1007@police.lk', phone: '0777890123', officerIdx: 6 },
+      { name: 'Dinesh Wickrama',   email: 'pc1008@police.lk', phone: '0778901234', officerIdx: 7 },
     ];
     await User.bulkCreate(
       officerUsers.map((o) => ({
@@ -138,10 +138,18 @@ async function seed() {
         password_hash: officerPassword,
         role: 'OFFICER',
         phone: o.phone,
+        officer_id: officers[o.officerIdx].id,
       })),
       { ignoreDuplicates: true }
     );
-    console.log(`✓ Seeded ${officerUsers.length} officer users (password: officer123)`);
+    console.log(`✓ Seeded ${officerUsers.length} officer users\n`);
+    console.log('  Officer Login Credentials (password for all: officer123)');
+    console.log('  ' + '─'.repeat(65));
+    officerUsers.forEach((o) => {
+      const badge = officers[o.officerIdx].badge_number;
+      console.log(`  ${badge.padEnd(10)}  ${o.name.padEnd(22)}  ${o.email}`);
+    });
+    console.log('  ' + '─'.repeat(65));
 
     console.log('\n✓ Seed completed successfully!');
     process.exit(0);
